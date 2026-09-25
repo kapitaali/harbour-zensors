@@ -375,6 +375,10 @@ var categories = [
     {
         id: "audio",
         name: "Audio",
+        // The microphone only runs while the Audio page is open, so the
+        // dashboard has nothing to show for it - say that instead of
+        // claiming the device exposes nothing.
+        hint: "tap to listen",
         headline: [ { key: "mic.level", fmt: function(v) { return fmtPct(100 * Number(v)) } } ],
         sub: [ { key: "mic.active", fmt: function(v) { return v ? "microphone live" : "microphone stopped" } } ],
         rows: [

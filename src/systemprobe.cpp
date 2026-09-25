@@ -1090,6 +1090,9 @@ void SystemProbe::setMicActive(bool active)
         connect(m_audioDev, SIGNAL(readyRead()), this, SLOT(onMicReadyRead()));
         set(QLatin1String("mic.supported"), true);
         m_micActive = true;
+        // The Audio page reads this from the values map, so publish it there
+        // too - the micActiveChanged property alone does not reach the rows.
+        set(QLatin1String("mic.active"), true);
         emit micActiveChanged();
     } else {
         if (m_audio) {
@@ -1101,6 +1104,7 @@ void SystemProbe::setMicActive(bool active)
         set(QLatin1String("mic.level"), 0.0);
         set(QLatin1String("mic.peak"), 0.0);
         m_micActive = false;
+        set(QLatin1String("mic.active"), false);
         emit micActiveChanged();
     }
 

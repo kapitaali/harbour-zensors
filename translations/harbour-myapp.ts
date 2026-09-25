@@ -73,19 +73,19 @@
 <context>
     <name>MainPage</name>
     <message>
-        <source>Refresh now</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>About</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Sensors</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Only readings this device actually exposes are listed. Tap anything for the full page, including what is missing.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Refresh now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>About</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
