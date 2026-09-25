@@ -1,0 +1,32 @@
+# Build artifacts
+*.o
+*.so
+*.moc
+moc_*.cpp
+qrc_*.cpp
+Makefile
+Makefile.*
+*.pro.user
+*.pro.user.*
+
+# qmake / build engine output
+.qmake.stash
+deploy/
+installroot/
+RPMS/
+SRPMS/
+BUILDDIR/
+
+# sfdk
+.sfdk/
+build/
+*.log
+
+# Editors / OS
+*.swp
+*~
+.DS_Store
+
+# Secrets - never commit
+passphrase.txt
+*.gpg

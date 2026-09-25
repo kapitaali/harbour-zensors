@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites format="1">
+    <testsuite name="autotests">
+        <test name="tst_firstpage">
+            <file>tst_firstpage.qml</file>
+        </test>
+    </testsuite>
+</testsuites>
