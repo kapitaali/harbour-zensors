@@ -36,6 +36,13 @@ Page {
     // separate readings; at 9 they open out to ~18 px.
     readonly property real rowGap: 9
 
+    // A cell that draws a graph runs 6 px of content lower than a plain one,
+    // so the reading under it lands closer to the next row than it does
+    // under a plain cell - about 18 px against 32 px. All the cells of a
+    // line share that line's height, so raising just the graph cells lifts
+    // the whole line and gives the row below 9 px more, ~18 px to ~27 px.
+    readonly property real barRowGap: 9
+
     Component.onCompleted: {
         console.log("LAYOUT page", page.width, "x", page.height,
                     "flow", flow.width, "cols", flow.columns,
@@ -95,6 +102,7 @@ Page {
                                : (entry.graph ? flow.graphCellWidth : flow.cellWidth)
                         height: entry.kind === "section" ? header.implicitHeight + Theme.paddingSmall
                                                           : page.cellHeight + page.rowGap
+                                                            + (entry.graph ? page.barRowGap : 0)
 
                         opacity: tap.pressed ? 0.6 : 1.0
 
