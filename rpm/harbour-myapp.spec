@@ -1,5 +1,5 @@
 Name:       harbour-myapp
-Summary:    My Sailfish OS Application
+Summary:    Every sensor and meter in one list
 Version:    0.1
 Release:    1
 Group:      Qt/Qt
@@ -8,14 +8,21 @@ URL:        http://example.org/
 Source0:    %{name}-%{version}.tar.bz2
 
 Requires:   sailfishsilica-qt5 >= 0.10.9
+Requires:   qt5-qtdeclarative-import-sensors
+Requires:   qt5-qtdeclarative-import-positioning
 BuildRequires: pkgconfig(sailfishapp) >= 1.0.2
 BuildRequires: pkgconfig(Qt5Core)
 BuildRequires: pkgconfig(Qt5Qml)
 BuildRequires: pkgconfig(Qt5Quick)
+BuildRequires: pkgconfig(Qt5DBus)
+BuildRequires: pkgconfig(Qt5Multimedia)
 BuildRequires: desktop-file-utils
 
 %description
-Short description of my Sailfish OS Application.
+Reads every measurement the OS exposes to an application - performance,
+battery, storage, thermals, display, network, radio, Bluetooth, location,
+motion, microphone and system facts - and lists them per category, with
+probes that degrade to "not available" on hardware that does not have them.
 
 %prep
 %setup -q -n %{name}-%{version}

@@ -28,7 +28,8 @@ TestCase {
 
     function test_header_title() {
         var page = createTemporaryObject(FirstPage, testCase)
-        compare(page.children[0].children[1].text, "My App")
+        // Page -> SilicaFlickable -> Column -> PageHeader
+        compare(page.children[0].children[0].children[0].title, "About")
     }
 
     SignalSpy {

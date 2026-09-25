@@ -1,14 +1,11 @@
 [Desktop Entry]
 Type=Application
 X-Nemo-Application-Type=silica-qt5
-Name=My App
+Name=Sensors
 Icon=harbour-myapp
 Exec=harbour-myapp
 
-# Sailjail sandbox declaration.
-# Ask only for what the app needs. Allowed permissions are listed at:
-# https://docs.sailfishos.org/Develop/Apps/Harbour/Allowed_Permissions/
 [X-Sailjail]
-Permissions=Internet
+Permissions=Sensors;Location;Internet;Connman;Bluetooth;NFC;Audio;Microphone
 OrganizationName=com.example
 ApplicationName=harbour-myapp

@@ -1,20 +1,20 @@
 import QtQuick 2.6
 import Sailfish.Silica 1.0
+import "../backend/metrics.js" as Metrics
 
+/*
+ * About: what the app is, where the numbers come from, and the device it is
+ * running on.
+ */
 Page {
     id: page
+
+    property var values: probe.values
     allowedOrientations: Orientation.All
 
     SilicaFlickable {
         anchors.fill: parent
         contentHeight: column.height
-
-        PullDownMenu {
-            MenuItem {
-                text: qsTr("Show Page 2")
-                onClicked: pageStack.animatorPush(Qt.resolvedUrl("SecondPage.qml"))
-            }
-        }
 
         Column {
             id: column
@@ -22,7 +22,15 @@ Page {
             spacing: Theme.paddingLarge
 
             PageHeader {
-                title: qsTr("My App")
+                title: qsTr("About")
+            }
+
+            Label {
+                x: Theme.horizontalPageMargin
+                width: page.width - 2 * Theme.horizontalPageMargin
+                wrapMode: Text.Wrap
+                color: Theme.primaryColor
+                text: qsTr("Sensors gathers every measurement the operating system lets an app read into one list: performance, battery, storage, thermals, display, network, radio, Bluetooth, location, motion, microphone and the plain system facts.")
             }
 
             Label {
@@ -30,9 +38,30 @@ Page {
                 width: page.width - 2 * Theme.horizontalPageMargin
                 wrapMode: Text.Wrap
                 color: Theme.secondaryColor
-                text: qsTr("Welcome to your new Sailfish OS application.\n\n" +
-                           "Pull down to open the menu and continue to page 2.")
+                font.pixelSize: Theme.fontSizeSmall
+                text: qsTr("Values come from /proc and /sys, from the system daemons over D-Bus and from the Qt sensor, positioning and audio APIs. Probes the device does not have simply stay empty; nothing is invented.")
+            }
+
+            Label {
+                x: Theme.horizontalPageMargin
+                width: page.width - 2 * Theme.horizontalPageMargin
+                wrapMode: Text.Wrap
+                color: Theme.secondaryColor
+                font.pixelSize: Theme.fontSizeSmall
+                text: {
+                    var lines = []
+                    var device = values["sys.device"]
+                    var os = values["sys.prettyName"]
+                    var kernel = values["sys.kernel"]
+                    if (device !== undefined) lines.push(qsTr("Device: %1").arg(device))
+                    if (os !== undefined) lines.push(qsTr("System: %1").arg(os))
+                    if (kernel !== undefined) lines.push(qsTr("Kernel: %1").arg(kernel))
+                    lines.push(qsTr("Updated every two seconds"))
+                    return lines.join("\n")
+                }
             }
         }
+
+        VerticalScrollDecorator {}
     }
 }

@@ -4,11 +4,11 @@ import "pages"
 
 /*
  * Top-level QML file. The name must match TARGET in harbour-myapp.pro
- * because SailfishApp::main() resolves it automatically.
+ * because SailfishApp::pathTo() resolves it from there.
  */
 ApplicationWindow {
     initialPage: Component {
-        FirstPage {}
+        MainPage {}
     }
     cover: Qt.resolvedUrl("cover/CoverPage.qml")
     allowedOrientations: defaultAllowedOrientations
