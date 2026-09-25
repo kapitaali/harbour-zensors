@@ -129,7 +129,7 @@ Page {
                                          + (cell.entry.count === 1 ? " reading" : " readings")
                                        : "")
                                   : ""
-                            color: Theme.secondaryHighlightColor
+                            color: Metrics.categoryColor
                             font.pixelSize: Theme.fontSizeSmall
                             truncationMode: TruncationMode.Fade
                         }

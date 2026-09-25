@@ -61,6 +61,7 @@ Page {
 
             PageHeader {
                 title: page.category.name
+                titleColor: Metrics.categoryColor
             }
 
             Label {

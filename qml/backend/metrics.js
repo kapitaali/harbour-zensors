@@ -13,6 +13,15 @@
 
 var dash = "—"
 
+/*
+ * Category headings - the section rules on the dashboard and the title of
+ * a category page - carry their own hue rather than the theme's highlight,
+ * so a heading can never be mistaken for the value underneath it. Jade on
+ * the near-black ambience, picked to sit at about the same lightness as
+ * the highlight salmon the values use.
+ */
+var categoryColor = "#4fc98a"
+
 function fmtText(v) {
     if (v === undefined || v === null) return dash
     if (typeof v === "boolean") return v ? "yes" : "no"
