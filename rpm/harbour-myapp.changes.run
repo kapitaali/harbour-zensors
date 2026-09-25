@@ -1,3 +1,15 @@
-# Changelog of the installed package (run once on first install/update).
-# Entries are appended automatically by the SDK when using .changes.in style
-# workflows; with the plain .changes file above, this file may stay empty.
+#!/bin/bash
+# Dynamic RPM changelog, generated from git commit messages at build time.
+#
+# sfdk runs this before rpmbuild and uses its stdout as the %changelog section.
+# It takes precedence over harbour-myapp.changes when both exist.
+#
+# Only lines matching "[tag] <past-tense description>" are picked up, e.g.
+#
+#     [app] Added pull-down menu to the first page.
+#     [packaging] Bumped version to 0.2.
+#
+# Search starts at HEAD and walks the whole history; pass --since <rev> once
+# you start tagging releases so older entries are not repeated.
+# See: sfdk changelog --help
+sfdk-changelog
