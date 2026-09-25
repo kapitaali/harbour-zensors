@@ -22,6 +22,11 @@ BUILDDIR/
 build/
 *.log
 
+# sfdk builds the working tree in place, so these land next to the sources
+/harbour-myapp
+/documentation.list
+*.qm
+
 # Editors / OS
 *.swp
 *~

@@ -2,6 +2,13 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="de_DE">
 <context>
+    <name>CoverPage</name>
+    <message>
+        <source>My App</source>
+        <translation>Meine App</translation>
+    </message>
+</context>
+<context>
     <name>FirstPage</name>
     <message>
         <source>Show Page 2</source>
@@ -14,6 +21,10 @@ Pull down to open the menu and continue to page 2.</source>
         <translation>Willkommen in deiner neuen Sailfish-OS-Anwendung.
 
 Ziehe nach unten, um das Menü zu öffnen, und fahre mit Seite 2 fort.</translation>
+    </message>
+    <message>
+        <source>My App</source>
+        <translation type="unfinished">Meine App</translation>
     </message>
 </context>
 <context>
@@ -30,12 +41,9 @@ Flick up from the bottom edge for the push-up menu.</source>
 
 Wische vom unteren Rand nach oben für das Aufklappmenü.</translation>
     </message>
-</context>
-<context>
-    <name>CoverPage</name>
     <message>
-        <source>My App</source>
-        <translation>Meine App</translation>
+        <source>Second Page</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

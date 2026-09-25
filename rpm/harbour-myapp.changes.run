@@ -9,7 +9,13 @@
 #     [app] Added pull-down menu to the first page.
 #     [packaging] Bumped version to 0.2.
 #
-# Search starts at HEAD and walks the whole history; pass --since <rev> once
-# you start tagging releases so older entries are not repeated.
+# Newest first: work since the last release tag, then the tagged releases.
 # See: sfdk changelog --help
-sfdk-changelog
+
+# Entries not reachable from any release tag: everything, until the first tag
+# exists. This is the part that actually carries the changelog before v1.0.
+sfdk-changelog --untagged-only
+
+# Entries for tagged revisions, newest release first. Before the first tag this
+# finds nothing and only warns on stderr, so it must not fail the build.
+sfdk-changelog || true
