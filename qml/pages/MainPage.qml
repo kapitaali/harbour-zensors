@@ -28,6 +28,14 @@ Page {
     readonly property real cellHeight: Theme.fontSizeExtraSmall + Theme.fontSizeSmall
                                        + Theme.paddingMedium + 8
 
+    // Extra room left under every cell. Flow gives every cell the same box,
+    // the content sits top-aligned inside it, and Flow adds `spacing` between
+    // lines, so the whitespace from one row's reading to the next is
+    // (cellHeight - content) + spacing. Adding here adds the same amount to
+    // every row: at 0 the rows sit ~9 px apart, too tight to read as
+    // separate readings; at 9 they open out to ~18 px.
+    readonly property real rowGap: 9
+
     Component.onCompleted: {
         console.log("LAYOUT page", page.width, "x", page.height,
                     "flow", flow.width, "cols", flow.columns,
@@ -86,7 +94,7 @@ Page {
                         width: entry.kind === "section" ? flow.width
                                : (entry.graph ? flow.graphCellWidth : flow.cellWidth)
                         height: entry.kind === "section" ? header.implicitHeight + Theme.paddingSmall
-                                                          : page.cellHeight
+                                                          : page.cellHeight + page.rowGap
 
                         opacity: tap.pressed ? 0.6 : 1.0
 
