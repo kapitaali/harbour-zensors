@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
 X-Nemo-Application-Type=silica-qt5
-Name=Sensors
-Icon=harbour-myapp
-Exec=harbour-myapp
+Name=Zensors
+Icon=harbour-zensors
+Exec=harbour-zensors
 
 [X-Sailjail]
 Permissions=Sensors;Location;Internet;Connman;Bluetooth;NFC;Audio;Microphone
 OrganizationName=com.example
-ApplicationName=harbour-myapp
+ApplicationName=harbour-zensors

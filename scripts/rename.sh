@@ -40,9 +40,9 @@ find . -type f \( -name "*.pro" -o -name "*.qml" -o -name "*.cpp" -o -name "*.h"
     fi
 done
 
-# Derive display name (harbour-myapp -> Myapp) for Name=/Exec hints
+# Derive display name (harbour-zensors -> Myapp) for Name=/Exec hints
 echo
 echo "Done. Remember to update:"
-echo "  - harbour-myapp.desktop: Name=, OrganizationName, ApplicationName"
+echo "  - harbour-zensors.desktop: Name=, OrganizationName, ApplicationName"
 echo "  - rpm spec: Summary, URL, %description"
 echo "  - translations display strings (qsTr)"

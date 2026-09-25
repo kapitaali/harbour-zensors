@@ -32,7 +32,7 @@ CoverBackground {
 
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: qsTr("Sensors")
+            text: qsTr("Zensors")
             color: Theme.primaryColor
             font.pixelSize: Theme.fontSizeMedium
         }

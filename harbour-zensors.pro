@@ -1,13 +1,13 @@
-TARGET = harbour-myapp
+TARGET = harbour-zensors
 CONFIG += sailfishapp sailfishapp_i18n c++11
 QT += dbus multimedia
 
-SOURCES += src/harbour-myapp.cpp \
+SOURCES += src/harbour-zensors.cpp \
            src/systemprobe.cpp
 
 HEADERS += src/systemprobe.h
 
-DISTFILES += qml/harbour-myapp.qml \
+DISTFILES += qml/harbour-zensors.qml \
              qml/pages/MainPage.qml \
              qml/pages/CategoryPage.qml \
              qml/pages/LocationProbe.qml \
@@ -15,14 +15,14 @@ DISTFILES += qml/harbour-myapp.qml \
              qml/pages/FirstPage.qml \
              qml/backend/metrics.js \
              qml/cover/CoverPage.qml \
-             rpm/harbour-myapp.spec \
-             rpm/harbour-myapp.changes \
-             rpm/harbour-myapp.changes.run \
-             harbour-myapp.desktop \
+             rpm/harbour-zensors.spec \
+             rpm/harbour-zensors.changes \
+             rpm/harbour-zensors.changes.run \
+             harbour-zensors.desktop \
              translations/*.ts \
              tests/auto/tests.xml \
              tests/auto/tst_firstpage.qml
 
 SAILFISHAPP_ICONS = 86x86 108x108 128x128 172x172
 
-TRANSLATIONS += translations/harbour-myapp-de.ts
+TRANSLATIONS += translations/harbour-zensors-de.ts

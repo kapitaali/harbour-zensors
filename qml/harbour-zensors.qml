@@ -3,7 +3,7 @@ import Sailfish.Silica 1.0
 import "pages"
 
 /*
- * Top-level QML file. The name must match TARGET in harbour-myapp.pro
+ * Top-level QML file. The name must match TARGET in harbour-zensors.pro
  * because SailfishApp::pathTo() resolves it from there.
  */
 ApplicationWindow {

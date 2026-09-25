@@ -1,4 +1,4 @@
-Name:       harbour-myapp
+Name:       harbour-zensors
 Summary:    Every sensor and meter in one list
 Version:    0.1
 Release:    1
@@ -28,7 +28,7 @@ probes that degrade to "not available" on hardware that does not have them.
 %setup -q -n %{name}-%{version}
 
 %build
-%qmake5 harbour-myapp.pro
+%qmake5 harbour-zensors.pro
 %make_build
 
 %install
@@ -37,7 +37,7 @@ rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root,-)
-%{_bindir}/harbour-myapp
-%{_datadir}/harbour-myapp
-%{_datadir}/applications/harbour-myapp.desktop
-%{_datadir}/icons/hicolor/*/apps/harbour-myapp.png
+%{_bindir}/harbour-zensors
+%{_datadir}/harbour-zensors
+%{_datadir}/applications/harbour-zensors.desktop
+%{_datadir}/icons/hicolor/*/apps/harbour-zensors.png

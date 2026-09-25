@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
     view->rootContext()->setContextProperty("probe", &probe);
     probe.setWindow(view.data());   // SIGUSR1 -> window grab for SSH verification
 
-    view->setSource(SailfishApp::pathTo("qml/harbour-myapp.qml"));
+    view->setSource(SailfishApp::pathTo("qml/harbour-zensors.qml"));
     view->showFullScreen();
 
     QScreen *screen = QGuiApplication::primaryScreen();

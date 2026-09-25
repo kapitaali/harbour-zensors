@@ -1,10 +1,10 @@
-# harbour-myapp
+# harbour-zensors
 
 A minimal, Harbour-compliant Sailfish OS application template.
 
 ## Build & Run
 
-**In the Sailfish IDE:** `File > Open File or Project > harbour-myapp.pro`, pick a kit
+**In the Sailfish IDE:** `File > Open File or Project > harbour-zensors.pro`, pick a kit
 (`SailfishOS-<ver>-i486` for emulator, `-armv7hl` / `-aarch64` for device), then run.
 
 **With sfdk (CLI):**
@@ -20,27 +20,27 @@ Deploy by copying `RPMS/*.rpm` to the device and `rpm -i`, or let the IDE's
 ## Rename the template
 
 ```bash
-./scripts/rename.sh harbour-myapp harbour-yourapp
+./scripts/rename.sh harbour-zensors harbour-yourapp
 ```
 
 ## Project layout
 
 | Path | Purpose |
 |---|---|
-| `harbour-myapp.pro` | qmake project; `CONFIG += sailfishapp` pulls standard install rules |
-| `src/harbour-myapp.cpp` | Entry point: `SailfishApp::main()` loads `qml/harbour-myapp.qml` |
-| `qml/harbour-myapp.qml` | `ApplicationWindow`, page stack, cover |
+| `harbour-zensors.pro` | qmake project; `CONFIG += sailfishapp` pulls standard install rules |
+| `src/harbour-zensors.cpp` | Entry point: `SailfishApp::main()` loads `qml/harbour-zensors.qml` |
+| `qml/harbour-zensors.qml` | `ApplicationWindow`, page stack, cover |
 | `qml/pages/` | Page components (pull-down menu, page stack demo) |
 | `qml/cover/CoverPage.qml` | Home screen cover + cover action |
-| `rpm/harbour-myapp.spec` | RPM packaging (`%build`, `%install`, `%files`) |
-| `harbour-myapp.desktop` | Launcher entry incl. `[X-Sailjail]` sandbox permissions |
+| `rpm/harbour-zensors.spec` | RPM packaging (`%build`, `%install`, `%files`) |
+| `harbour-zensors.desktop` | Launcher entry incl. `[X-Sailjail]` sandbox permissions |
 | `icons/` | App icons 86/108/128/172 (generate with `scripts/generate-icons.sh`) |
 | `translations/` | `qsTr()` translation sources (`.ts`) |
 | `tests/auto/` | Qt Quick Test skeleton + `tests.xml` for CI |
 
 ## Harbour checklist
 
-- [x] Target/icon/desktop all named `harbour-myapp`
+- [x] Target/icon/desktop all named `harbour-zensors`
 - [x] `[X-Sailjail]` section with minimal permissions (`Internet`)
 - [x] Only allowlisted QML imports (`QtQuick 2.6`, `Sailfish.Silica 1.0`)
 - [x] RPM spec limited to allowlisted `Requires`/`BuildRequires`

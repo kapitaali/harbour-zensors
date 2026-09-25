@@ -23,7 +23,7 @@ build/
 *.log
 
 # sfdk builds the working tree in place, so these land next to the sources
-/harbour-myapp
+/harbour-zensors
 /documentation.list
 *.qm
 

@@ -10,7 +10,7 @@
 #   sfdk config --global --push package.signing-passphrase-file "$HOME/passphrase.txt"
 #
 # Verify afterwards:
-#   rpm -K RPMS/harbour-myapp-*.rpm
+#   rpm -K RPMS/harbour-zensors-*.rpm
 
 set -euo pipefail
 cd "$(dirname "$0")/.."

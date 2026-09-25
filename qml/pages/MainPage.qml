@@ -72,7 +72,7 @@ Page {
             width: page.width
 
             PageHeader {
-                title: qsTr("Sensors")
+                title: qsTr("Zensors")
             }
 
             Flow {

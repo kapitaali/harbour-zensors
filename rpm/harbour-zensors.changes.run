@@ -13,10 +13,10 @@
 #     [app] Added pull-down menu to the first page.
 #     [packaging] Bumped version to 0.2.
 #
-# Takes precedence over harbour-myapp.changes. See: sfdk changelog --help
+# Takes precedence over harbour-zensors.changes. See: sfdk changelog --help
 
-spec=rpm/harbour-myapp.spec
-[ -f "$spec" ] || spec="$(dirname "$0")/harbour-myapp.spec"
+spec=rpm/harbour-zensors.spec
+[ -f "$spec" ] || spec="$(dirname "$0")/harbour-zensors.spec"
 version=$(sed -n 's/^Version:[[:space:]]*//p' "$spec")
 release=$(sed -n 's/^Release:[[:space:]]*//p' "$spec")
 
@@ -25,7 +25,7 @@ release=$(sed -n 's/^Release:[[:space:]]*//p' "$spec")
 author=$(git log -1 --pretty='format:%an <%ae>' 2>/dev/null)
 [ -n "$author" ] || author="$(git config user.name) <$(git config user.email)>"
 [ -n "$author" ] || author=$(sed -n '2s/^[^ ]* [^ ]* [0-9]* [0-9]* \([^ ]* [^ ]*\).*/\1/p' \
-    "$(dirname "$0")/harbour-myapp.changes" 2>/dev/null)
+    "$(dirname "$0")/harbour-zensors.changes" 2>/dev/null)
 [ -n "$author" ] || author="teppo <teppo@kapitaali.com>"   # last resort
 
 # Unreleased work: everything reachable before the first release tag.

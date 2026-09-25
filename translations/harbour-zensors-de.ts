@@ -23,10 +23,6 @@
 <context>
     <name>CoverPage</name>
     <message>
-        <source>Sensors</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>CPU</source>
         <translation type="unfinished"></translation>
     </message>
@@ -38,15 +34,15 @@
         <source>Battery</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Zensors</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>FirstPage</name>
     <message>
         <source>About</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Sensors gathers every measurement the operating system lets an app read into one list: performance, battery, storage, thermals, display, network, radio, Bluetooth, location, motion, microphone and the plain system facts.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -69,13 +65,13 @@
         <source>Updated every two seconds</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Zensors gathers every measurement the operating system lets an app read into one list: performance, battery, storage, thermals, display, network, radio, Bluetooth, location, motion, microphone and the plain system facts.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>MainPage</name>
-    <message>
-        <source>Sensors</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message>
         <source>Only readings this device actually exposes are listed. Tap anything for the full page, including what is missing.</source>
         <translation type="unfinished"></translation>
@@ -86,6 +82,10 @@
     </message>
     <message>
         <source>About</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Zensors</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -30,7 +30,7 @@ Page {
                 width: page.width - 2 * Theme.horizontalPageMargin
                 wrapMode: Text.Wrap
                 color: Theme.primaryColor
-                text: qsTr("Sensors gathers every measurement the operating system lets an app read into one list: performance, battery, storage, thermals, display, network, radio, Bluetooth, location, motion, microphone and the plain system facts.")
+                text: qsTr("Zensors gathers every measurement the operating system lets an app read into one list: performance, battery, storage, thermals, display, network, radio, Bluetooth, location, motion, microphone and the plain system facts.")
             }
 
             Label {

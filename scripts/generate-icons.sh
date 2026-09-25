@@ -8,7 +8,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-NAME="harbour-myapp"
+NAME="harbour-zensors"
 SIZES=(86 108 128 172)
 
 if ! command -v magick >/dev/null 2>&1 && ! command -v convert >/dev/null 2>&1; then
