@@ -1,21 +1,41 @@
 #!/bin/bash
-# Dynamic RPM changelog, generated from git commit messages at build time.
+# RPM %changelog body, generated from git at build time.
 #
-# sfdk runs this before rpmbuild and uses its stdout as the %changelog section.
-# It takes precedence over harbour-myapp.changes when both exist.
+# sfdk runs this and splices its stdout straight into the %changelog section,
+# so every entry needs a "* <date> <name> <email> - <version-release>" headline
+# or rpmbuild drops it with: "error: %changelog entries must start with *".
+# sfdk-changelog only writes those headlines for tagged revisions, so the
+# still-unreleased work gets one from here.
 #
-# Only lines matching "[tag] <past-tense description>" are picked up, e.g.
+# The bullet lines come from commit messages matching
+# "[tag] <past-tense description>", e.g.
 #
 #     [app] Added pull-down menu to the first page.
 #     [packaging] Bumped version to 0.2.
 #
-# Newest first: work since the last release tag, then the tagged releases.
-# See: sfdk changelog --help
+# Takes precedence over harbour-myapp.changes. See: sfdk changelog --help
 
-# Entries not reachable from any release tag: everything, until the first tag
-# exists. This is the part that actually carries the changelog before v1.0.
-sfdk-changelog --untagged-only
+spec=rpm/harbour-myapp.spec
+[ -f "$spec" ] || spec="$(dirname "$0")/harbour-myapp.spec"
+version=$(sed -n 's/^Version:[[:space:]]*//p' "$spec")
+release=$(sed -n 's/^Release:[[:space:]]*//p' "$spec")
 
-# Entries for tagged revisions, newest release first. Before the first tag this
-# finds nothing and only warns on stderr, so it must not fail the build.
+# Prefer the commit author, then the repo identity, then the static changelog,
+# so the headline is never malformed.
+author=$(git log -1 --pretty='format:%an <%ae>' 2>/dev/null)
+[ -n "$author" ] || author="$(git config user.name) <$(git config user.email)>"
+[ -n "$author" ] || author=$(sed -n '2s/^[^ ]* [^ ]* [0-9]* [0-9]* \([^ ]* [^ ]*\).*/\1/p' \
+    "$(dirname "$0")/harbour-myapp.changes" 2>/dev/null)
+[ -n "$author" ] || author="teppo <teppo@kapitaali.com>"   # last resort
+
+# Unreleased work: everything reachable before the first release tag.
+entries=$(sfdk-changelog --untagged-only 2>/dev/null)
+if [ -n "$entries" ]; then
+    echo "* $(date '+%a %b %-d %Y') $author - $version-$release"
+    printf '%s\n' "$entries"
+    echo
+fi
+
+# Released entries, each with its own headline. Warns (harmlessly) until the
+# first tag exists, so it must not fail the build.
 sfdk-changelog || true
