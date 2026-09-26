@@ -47,7 +47,7 @@ Deploy by copying `RPMS/*.rpm` to the device and `rpm -i`, or let the IDE's
 - [x] All user-visible strings wrapped in `qsTr()`
 - [x] Icon PNGs generated (run `scripts/generate-icons.sh`)
 - [ ] RPM validator passes on deploy (shown in the IDE compile window)
-- [ ] Built with `-armv7hl` or `-aarch64` kit before Harbour submission
+- [x] Built with `-armv7hl` or `-aarch64` kit before Harbour submission
 
 ## References
 
