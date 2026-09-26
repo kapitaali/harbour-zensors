@@ -52,15 +52,15 @@ Page {
                 textFormat: Text.RichText
                 text: {
                     var lines = []
+                    lines.push(qsTr("Updated every two seconds"))
+                    var line = qsTr("We love Open Source software and the Jolla ecosystem. If you want to support me or my work, please leave some tip here: <a href=\"%1\">%1</a>").arg(page.supportLink)
+                    lines.push(line)
                     var device = values["sys.device"]
                     var os = values["sys.prettyName"]
                     var kernel = values["sys.kernel"]
                     if (device !== undefined) lines.push(qsTr("Device: %1").arg(device))
                     if (os !== undefined) lines.push(qsTr("System: %1").arg(os))
                     if (kernel !== undefined) lines.push(qsTr("Kernel: %1").arg(kernel))
-                    lines.push(qsTr("Updated every two seconds"))
-                    var line = qsTr("We love Open Source software and the Jolla ecosystem. If you want to support me or my work, please leave some tip here: <a href=\"%1\">%1</a>").arg(page.supportLink)
-                    lines.push(line)
                     return lines.join("\n")
                 }
                 onLinkActivated: Qt.openUrlExternally(link)
