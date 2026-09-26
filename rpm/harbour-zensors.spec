@@ -3,7 +3,7 @@ Summary:    Every sensor and meter in one list
 Version:    0.1
 Release:    1
 Group:      Qt/Qt
-License:    LICENSE
+License:    GPL-3.0-only
 URL:        http://example.org/
 Source0:    %{name}-%{version}.tar.bz2
 
