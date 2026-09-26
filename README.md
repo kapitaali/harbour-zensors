@@ -1,6 +1,6 @@
 # harbour-zensors
 
-A minimal, Harbour-compliant Sailfish OS application template.
+Zensors displays all the available sensor data from your SailfishOS device.
 
 ## Build & Run
 
