@@ -1,6 +1,11 @@
+// GLib must be included before Qt: Qt rewrites the token `signals` into a
+// macro, which would corrupt GDBusSignalInfo's own `signals` member.
+#include <gio/gio.h>
+
 #include "systemprobe.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <QDir>
 #include <QTextStream>
 #include <QStorageInfo>
@@ -18,7 +23,6 @@
 #include <QDBusVariant>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
-#include <QStandardPaths>
 
 #include <QtMath>
 #include <QQuickWindow>
@@ -55,12 +59,12 @@ QStringList readLines(const QString &path)
 }
 
 /*
- * Parsers for "gdbus call" output.
+ * Parsers for GVariant literal text.
  *
- * D-Bus property maps are fetched with gdbus instead of Qt because this Qt
+ * D-Bus property maps are read with GDBus (libgio) instead of Qt, because Qt
  * demarshals a{sv} replies badly: keys came back empty, and reading the
- * values as QVariant crashed inside libdbus. gdbus prints the dictionary as
- * one GVariant literal, e.g.
+ * values as QVariant crashed inside libdbus. The reply is printed back to
+ * text with g_variant_print() - byte for byte what "gdbus call" printed - e.g.
  *
  *   ({'Name': <'Wired'>, 'Powered': <true>, 'State': <'online'>},)
  *
@@ -109,6 +113,7 @@ QVariant readGContainer(const QString &s, int *i, QChar close)
 {
     ++(*i);
     QVariantList list;
+    const bool dict = (close == QLatin1Char('}'));
     for (;;) {
         skipSpace(s, i);
         if (*i >= s.size())
@@ -116,6 +121,20 @@ QVariant readGContainer(const QString &s, int *i, QChar close)
         if (s.at(*i) == close) {
             ++(*i);
             break;
+        }
+        if (dict) {
+            // A dict entry reads <key> ':' <value>. The colon is not anything
+            // the value reader consumes, so handle it here and keep only the
+            // value. Before this, the scan died on the first dict and every
+            // key after it was lost - ofono's ServiceNumbers came before
+            // PinRequired, so the SIM PIN state never appeared.
+            QString key;
+            if (!readQuoted(s, i, &key))
+                return QVariant();
+            skipSpace(s, i);
+            if (*i >= s.size() || s.at(*i) != QLatin1Char(':'))
+                return QVariant();
+            ++(*i);
         }
         const QVariant v = readGVariant(s, i);
         if (!v.isValid())
@@ -133,11 +152,12 @@ QVariant readGContainer(const QString &s, int *i, QChar close)
         }
         return QVariant();
     }
-    if (close == QLatin1Char('}')) {
-        // a dict entry is a (key, value) pair
-        if (list.size() == 2)
-            return list.at(1);
-        return QVariant();
+    if (dict) {
+        // A single entry is that entry's value; more than one is the list of
+        // values. Either way the text parses and the caller moves on.
+        if (list.size() == 1)
+            return list.at(0);
+        return list;
     }
     return list;
 }
@@ -175,8 +195,10 @@ QVariant readGVariant(const QString &s, int *i)
         return readGContainer(s, i, QLatin1Char(']'));
     if (c == QLatin1Char('('))
         return readGContainer(s, i, QLatin1Char(')'));
+    if (c == QLatin1Char('{'))
+        return readGContainer(s, i, QLatin1Char('}'));
 
-    // bare token: true/false, a number, or an identifier such as a handle
+    // bare token: true/false, a number, a type name, or an identifier
     QString token;
     while (*i < s.size()) {
         const QChar ch = s.at(*i);
@@ -190,22 +212,44 @@ QVariant readGVariant(const QString &s, int *i)
         return true;
     if (token == QLatin1String("false"))
         return false;
+    if (token.isEmpty())
+        return QVariant();
+
     bool ok = false;
-    if (token.contains(QLatin1Char('.'))) {
+    if (token.startsWith(QLatin1String("0x"), Qt::CaseInsensitive)) {
+        const qlonglong n = token.mid(2).toLongLong(&ok, 16);
+        if (ok)
+            return n;
+    } else if (token.contains(QLatin1Char('.'))) {
         const double d = token.toDouble(&ok);
         if (ok)
             return d;
     } else {
-        const qlonglong n = token.toLongLong(&ok);
+        const qlonglong n = token.toLongLong(&ok, 10);
         if (ok)
             return n;
     }
-    if (token.isEmpty())
-        return QVariant();
+
+    // Not a literal on its own: GVariant prints the type first and the value
+    // after it - "<uint32 1512707>", "<byte 0x01>", "{'pin': byte 0x03}".
+    // Read on past the whitespace to the value. Without this the map stopped
+    // dead at CellId, taking Technology, Name, MCC/MNC and Strength with it.
+    if (*i < s.size() && s.at(*i).isSpace()) {
+        const int before = *i;
+        skipSpace(s, i);
+        if (*i < s.size() && s.at(*i) != QLatin1Char(',')
+                && s.at(*i) != QLatin1Char(']') && s.at(*i) != QLatin1Char('}')
+                && s.at(*i) != QLatin1Char(')') && s.at(*i) != QLatin1Char('>')) {
+            const QVariant v = readGVariant(s, i);
+            if (v.isValid())
+                return v;
+        }
+        *i = before;
+    }
     return token;
 }
 
-// Parses the top level dictionary of a gdbus call reply.
+// Parses the top level dictionary of a GVariant reply.
 QVariantMap parseGdbusMap(const QString &text)
 {
     QVariantMap map;
@@ -292,6 +336,14 @@ double percentChange(qint64 nowTotal, qint64 nowIdle, qint64 prevTotal, qint64 p
     return pct;
 }
 
+// Context handed to the async GDBus reply callback: which cache entry the
+// answer belongs to, and who to give it to.
+struct MapCall
+{
+    SystemProbe *probe;
+    QString key;
+};
+
 } // namespace
 
 SystemProbe::SystemProbe(QObject *parent)
@@ -299,7 +351,7 @@ SystemProbe::SystemProbe(QObject *parent)
     , m_dirty(false)
     , m_ticks(0)
     , m_window(0)
-    , m_gdbusChecked(false)
+    , m_glibPump(0)
     , m_prevCpuTotal(-1)
     , m_prevCpuIdle(-1)
     , m_prevIoRead(-1)
@@ -319,6 +371,12 @@ SystemProbe::SystemProbe(QObject *parent)
     timer->setInterval(2000);
     connect(timer, SIGNAL(timeout()), this, SLOT(tick()));
     timer->start();
+
+    // Created before the first tick() below, which already fires the D-Bus
+    // property reads. It only runs while a call is in flight.
+    m_glibPump = new QTimer(this);
+    m_glibPump->setInterval(50);
+    connect(m_glibPump, &QTimer::timeout, this, &SystemProbe::pumpGlib);
 
     tick();
 }
@@ -378,7 +436,7 @@ void SystemProbe::tick()
 
     if (m_ticks % 4 == 0)
         refreshDbus();
-    // The property maps are read from the gdbus cache, so these stay cheap
+    // The property maps are read from the GDBus cache, so these stay cheap
     // and run every tick: the first answer lands well before tick 1.
     refreshConnman();
     refreshOfono();
@@ -552,51 +610,170 @@ void SystemProbe::refreshStorage()
 
 void SystemProbe::refreshPower()
 {
-    const QString base = QLatin1String("/sys/class/power_supply/BAT0/");
-    if (!QFile::exists(base)) {
+    // Supply names are not standard. The emulator exposes the ACPI BAT0/AC
+    // pair; handsets expose /sys/class/power_supply/battery plus a fuel gauge
+    // and a pile of vendor charger supplies (MediaTek, in our case). Enumerate
+    // the class instead of assuming names.
+    const QString root = QLatin1String("/sys/class/power_supply/");
+    QDir dir(root);
+    const QStringList entries = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot,
+                                              QDir::Name);
+
+    QString bat;              // carries capacity/status/current/temp
+    QStringList chargers;     // supplies that can report Mains/USB/Wireless
+
+    for (int i = 0; i < entries.size(); ++i) {
+        const QString path = root + entries.at(i) + QLatin1Char('/');
+        const QString type = readTrimmed(path + QLatin1String("type"));
+
+        if (bat.isEmpty() && QFile::exists(path + QLatin1String("capacity")))
+            bat = path;
+        if (type == QLatin1String("Mains") || type == QLatin1String("USB")
+                || type == QLatin1String("Wireless"))
+            chargers << path;
+    }
+
+    if (bat.isEmpty()) {
+        // No battery supply at all - a desktop install, or hardware that
+        // reports its battery only through MCE.
         set(QLatin1String("bat.present"), false);
         unset(QLatin1String("bat.capacity"));
+        unset(QLatin1String("bat.status"));
+        unset(QLatin1String("bat.health"));
+        unset(QLatin1String("bat.energyNow"));
+        unset(QLatin1String("bat.voltage"));
+        unset(QLatin1String("bat.current"));
+        unset(QLatin1String("bat.power"));
+        unset(QLatin1String("bat.temp"));
+        unset(QLatin1String("bat.cycles"));
+        unset(QLatin1String("bat.technology"));
+        unset(QLatin1String("bat.charger"));
+        unset(QLatin1String("bat.chargerType"));
         return;
     }
     set(QLatin1String("bat.present"), true);
 
     double v = 0;
-    if (readNumber(base + QLatin1String("capacity"), &v))
+    if (readNumber(bat + QLatin1String("capacity"), &v))
         set(QLatin1String("bat.capacity"), v);
-    const QString status = readTrimmed(base + QLatin1String("status"));
+    else
+        unset(QLatin1String("bat.capacity"));
+
+    const QString status = readTrimmed(bat + QLatin1String("status"));
     if (!status.isEmpty())
         set(QLatin1String("bat.status"), status);
+    else
+        unset(QLatin1String("bat.status"));
 
-    double now = 0, full = 0, design = 0;
-    const bool hasNow = readNumber(base + QLatin1String("energy_now"), &now);
-    const bool hasFull = readNumber(base + QLatin1String("energy_full"), &full);
-    const bool hasDesign = readNumber(base + QLatin1String("energy_full_design"), &design);
-    if (hasNow)
-        set(QLatin1String("bat.energyNow"), now / 1000.0); // uWh -> mWh
-    if (hasFull && hasDesign && design > 0)
-        set(QLatin1String("bat.health"), 100.0 * full / design);
+    // Voltage and current first - the energy fallback below needs voltage.
+    double volts = -1;
+    if (readNumber(bat + QLatin1String("voltage_now"), &v)) {
+        volts = v;
+        set(QLatin1String("bat.voltage"), volts / 1000000.0);
+    } else {
+        unset(QLatin1String("bat.voltage"));
+    }
 
-    if (readNumber(base + QLatin1String("voltage_now"), &v))
-        set(QLatin1String("bat.voltage"), v / 1000000.0);
-    if (readNumber(base + QLatin1String("current_now"), &v))
-        set(QLatin1String("bat.current"), v / 1000000.0);
-    if (readNumber(base + QLatin1String("power_now"), &v))
+    double amps = -1;
+    if (readNumber(bat + QLatin1String("current_now"), &v)) {
+        amps = v;
+        set(QLatin1String("bat.current"), amps / 1000000.0);
+    } else {
+        unset(QLatin1String("bat.current"));
+    }
+
+    // Energy and health, always from one consistent pair of units: a supply
+    // publishes either energy_* (uWh) or charge_* (uAh), rarely both. The
+    // separate fuel-gauge supply is deliberately not consulted - its
+    // energy_now was 13.7% of energy_full while capacity() read 80%.
+    double eFull = -1, eDesign = -1, eNow = -1;
+    double cFull = -1, cDesign = -1, cNow = -1;
+    double tmp = 0;
+    if (readNumber(bat + QLatin1String("energy_full"), &tmp))
+        eFull = tmp;
+    if (readNumber(bat + QLatin1String("energy_full_design"), &tmp))
+        eDesign = tmp;
+    if (readNumber(bat + QLatin1String("energy_now"), &tmp))
+        eNow = tmp;
+    if (readNumber(bat + QLatin1String("charge_full"), &tmp))
+        cFull = tmp;
+    if (readNumber(bat + QLatin1String("charge_full_design"), &tmp))
+        cDesign = tmp;
+    if (readNumber(bat + QLatin1String("charge_now"), &tmp))
+        cNow = tmp;
+    else if (readNumber(bat + QLatin1String("charge_counter"), &tmp))
+        cNow = tmp;
+
+    if (eFull >= 0 && eDesign > 0)
+        set(QLatin1String("bat.health"), 100.0 * eFull / eDesign);
+    else if (cFull >= 0 && cDesign > 0)
+        set(QLatin1String("bat.health"), 100.0 * cFull / cDesign);
+    else
+        unset(QLatin1String("bat.health"));
+
+    if (eNow >= 0) {
+        set(QLatin1String("bat.energyNow"), eNow / 1000.0);          // uWh -> mWh
+    } else if (cNow >= 0 && volts > 0) {
+        set(QLatin1String("bat.energyNow"), cNow * volts / 1e9);     // uAh * uV -> mWh
+    } else {
+        unset(QLatin1String("bat.energyNow"));
+    }
+
+    if (readNumber(bat + QLatin1String("power_now"), &v)) {
         set(QLatin1String("bat.power"), v / 1000000.0);
-    if (readNumber(base + QLatin1String("cycle_count"), &v))
-        set(QLatin1String("bat.cycles"), v);
-    if (readNumber(base + QLatin1String("temp"), &v))
-        set(QLatin1String("bat.temp"), v / 10.0);
+    } else if (volts >= 0 && amps >= 0) {
+        // uV * uA is pico-watts.
+        set(QLatin1String("bat.power"), qAbs(volts * amps) / 1e12);
+    } else {
+        unset(QLatin1String("bat.power"));
+    }
 
-    const QString tech = readTrimmed(base + QLatin1String("technology"));
+    if (readNumber(bat + QLatin1String("cycle_count"), &v))
+        set(QLatin1String("bat.cycles"), v);
+    else
+        unset(QLatin1String("bat.cycles"));
+
+    if (readNumber(bat + QLatin1String("temp"), &v))
+        set(QLatin1String("bat.temp"), v / 10.0);
+    else
+        unset(QLatin1String("bat.temp"));
+
+    const QString tech = readTrimmed(bat + QLatin1String("technology"));
     if (!tech.isEmpty())
         set(QLatin1String("bat.technology"), tech);
+    else
+        unset(QLatin1String("bat.technology"));
 
-    double ac = -1;
-    if (readNumber(QLatin1String("/sys/class/power_supply/AC/online"), &ac))
-        set(QLatin1String("bat.charger"), ac > 0);
-    const QString acType = readTrimmed(QLatin1String("/sys/class/power_supply/AC/type"));
-    if (!acType.isEmpty())
-        set(QLatin1String("bat.chargerType"), acType);
+    // Any recognised supply can report online, and only one is ever live at
+    // a time - report that one, else the first supply we know about.
+    bool onlineKnown = false, online = false;
+    QString acType;
+    for (int i = 0; i < chargers.size(); ++i) {
+        const QString type = readTrimmed(chargers.at(i) + QLatin1String("type"));
+        if (acType.isEmpty() && !type.isEmpty())
+            acType = type;
+        double on = -1;
+        if (readNumber(chargers.at(i) + QLatin1String("online"), &on)) {
+            onlineKnown = true;
+            if (on > 0) {
+                online = true;
+                acType = type;
+            }
+        }
+    }
+    if (chargers.isEmpty()) {
+        unset(QLatin1String("bat.charger"));
+        unset(QLatin1String("bat.chargerType"));
+    } else {
+        if (onlineKnown)
+            set(QLatin1String("bat.charger"), online);
+        else
+            unset(QLatin1String("bat.charger"));
+        if (!acType.isEmpty())
+            set(QLatin1String("bat.chargerType"), acType);
+        else
+            unset(QLatin1String("bat.chargerType"));
+    }
 }
 
 void SystemProbe::refreshThermal()
@@ -639,19 +816,41 @@ void SystemProbe::refreshThermal()
 
 void SystemProbe::refreshDisplay()
 {
-    QDir dir(QLatin1String("/sys/class/backlight"));
-    const QStringList entries = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
-    if (!entries.isEmpty()) {
-        const QString path = QLatin1String("/sys/class/backlight/") + entries.first();
-        double cur = -1, max = -1;
+    // The backlight class is not universal: some devices publish no
+    // /sys/class/backlight entry at all and expose the panel through the LED
+    // class instead (observed on Sailfish 5.2, /sys/class/leds/lcd-backlight).
+    QStringList candidates;
+    QDir bl(QLatin1String("/sys/class/backlight"));
+    const QStringList entries = bl.entryList(QDir::Dirs | QDir::NoDotAndDotDot,
+                                             QDir::Name);
+    for (int i = 0; i < entries.size(); ++i)
+        candidates << QLatin1String("/sys/class/backlight/") + entries.at(i);
+
+    if (candidates.isEmpty()) {
+        static const char *const leds[] = { "lcd-backlight", "backlight" };
+        for (int i = 0; i < 2; ++i) {
+            const QString path = QLatin1String("/sys/class/leds/")
+                    + QLatin1String(leds[i]);
+            if (QFileInfo(path).isDir())
+                candidates << path;
+        }
+    }
+
+    double cur = -1, max = -1;
+    for (int i = 0; i < candidates.size() && cur < 0; ++i) {
+        const QString path = candidates.at(i);
         if (!readNumber(path + QLatin1String("/brightness"), &cur))
             readNumber(path + QLatin1String("/actual_brightness"), &cur);
         readNumber(path + QLatin1String("/max_brightness"), &max);
-        if (cur >= 0)
-            set(QLatin1String("disp.brightness"), cur);
-        if (max > 0)
-            set(QLatin1String("disp.maxBrightness"), max);
     }
+    if (cur >= 0)
+        set(QLatin1String("disp.brightness"), cur);
+    else
+        unset(QLatin1String("disp.brightness"));
+    if (max > 0)
+        set(QLatin1String("disp.maxBrightness"), max);
+    else
+        unset(QLatin1String("disp.maxBrightness"));
 
     // The display state itself comes from MCE - see refreshMce(), which runs
     // on the slower D-Bus cadence.
@@ -711,63 +910,115 @@ void SystemProbe::startMapCall(const QString &service, const QString &path,
                                const QStringList &args)
 {
     const QString key = mapKey(service, path, iface, method);
-    if (m_pending.values().contains(key))
+    if (m_pendingKeys.contains(key))
         return;                                  // already in flight
 
-    if (!m_gdbusChecked) {
-        m_gdbusChecked = true;
-        m_gdbus = QStandardPaths::findExecutable(QLatin1String("gdbus"));
-        if (m_gdbus.isEmpty())
-            qWarning("SystemProbe: gdbus not found, D-Bus property maps unavailable");
-    }
-    if (m_gdbus.isEmpty())
+    // g_bus_get_sync() honours DBUS_SYSTEM_BUS_ADDRESS, which Sailjail points
+    // at firejail's filtered socket: that is where Permissions= is enforced.
+    // Qt resolves the same variable, so both paths answer to one allow-list.
+    GError *error = nullptr;
+    GDBusConnection *bus = g_bus_get_sync(G_BUS_TYPE_SYSTEM, nullptr, &error);
+    if (!bus) {
+        qInfo("PROBE %s -> no system bus: %s", qPrintable(key),
+              error ? error->message : "unknown error");
+        if (error)
+            g_error_free(error);
+        m_mapCache.insert(key, QVariantMap());
         return;
+    }
 
-    QStringList a;
-    a << QLatin1String("call") << QLatin1String("--system")
-      << QLatin1String("--timeout") << QLatin1String("2")
-      << QLatin1String("--dest") << service
-      << QLatin1String("--object-path") << path
-      << QLatin1String("--method") << (iface + QLatin1Char('.') + method)
-      << args;
+    // GetProperties() takes nothing; org.freedesktop.DBus.Properties.GetAll
+    // takes the interface name. Plain strings are all our callers pass.
+    GVariant *params;
+    if (args.isEmpty()) {
+        params = g_variant_new("()");
+    } else if (args.size() == 1) {
+        const QByteArray one = args.at(0).toUtf8();
+        params = g_variant_new("(s)", one.constData());
+    } else {
+        const QByteArray one = args.at(0).toUtf8();
+        const QByteArray two = args.at(1).toUtf8();
+        params = g_variant_new("(ss)", one.constData(), two.constData());
+    }
+    g_variant_ref_sink(params);           // owned here, released after the call
 
-    QProcess *p = new QProcess(this);
-    m_pending.insert(p, key);
-    connect(p, static_cast<void (QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished),
-            this, &SystemProbe::mapCallFinished);
-    connect(p, static_cast<void (QProcess::*)(QProcess::ProcessError)>(&QProcess::error),
-            this, &SystemProbe::mapCallError);
-    p->start(m_gdbus, a);
+    const QByteArray dest = service.toLatin1();
+    const QByteArray objPath = path.toLatin1();
+    const QByteArray ifaceName = iface.toLatin1();
+    const QByteArray methodName = method.toLatin1();
+
+    MapCall *ctx = new MapCall;
+    ctx->probe = this;
+    ctx->key = key;
+    m_pendingKeys.insert(key);
+
+    // Interface and method travel as separate arguments here (unlike gdbus,
+    // which wanted them joined). The reply type is left open, so an unexpected
+    // signature degrades to an empty map rather than an error. mapCallThunk()
+    // runs on the thread pumpGlib() iterates - the GUI thread - so the cache
+    // needs no locking.
+    g_dbus_connection_call(bus, dest.constData(), objPath.constData(),
+                           ifaceName.constData(), methodName.constData(),
+                           params, nullptr, G_DBUS_CALL_FLAGS_NONE, 2000,
+                           nullptr, &SystemProbe::mapCallThunk, ctx);
+    g_variant_unref(params);
+    g_object_unref(bus);
+    startGlibPump();
 }
 
-void SystemProbe::mapCallFinished(int exitCode, QProcess::ExitStatus status)
+void SystemProbe::mapCallThunk(GObject *source, GAsyncResult *result,
+                               void *userData)
 {
-    QProcess *p = qobject_cast<QProcess *>(sender());
-    if (!p || !m_pending.contains(p))
-        return;
-    const QString key = m_pending.take(p);
-    const QByteArray out = p->readAllStandardOutput();
-    p->deleteLater();
+    MapCall *ctx = static_cast<MapCall *>(userData);
+    SystemProbe *self = ctx->probe;
+    const QString key = ctx->key;
+    delete ctx;
 
-    if (status == QProcess::NormalExit && exitCode == 0) {
-        const QVariantMap map = parseGdbusMap(QString::fromUtf8(out));
-        m_mapCache.insert(key, map);
+    GError *error = nullptr;
+    GVariant *reply = g_dbus_connection_call_finish(G_DBUS_CONNECTION(source),
+                                                    result, &error);
+    if (reply) {
+        gchar *text = g_variant_print(reply, TRUE);
+        const QVariantMap map = parseGdbusMap(QString::fromUtf8(text));
+        g_free(text);
+        g_variant_unref(reply);
+        self->m_mapCache.insert(key, map);
         if (!map.isEmpty())
             qInfo("PROBE %s -> %d keys", qPrintable(key), map.size());
     } else {
         // Object absent or refused by policy: an empty map is the right
-        // answer, and it also records that we did get an answer.
-        m_mapCache.insert(key, QVariantMap());
+        // answer, and it also records that we did get an answer. The absent
+        // cases are the everyday ones, so only anything else is worth a line.
+        self->m_mapCache.insert(key, QVariantMap());
+        const QString why = error ? QString::fromUtf8(error->message)
+                                  : QLatin1String("no reply");
+        if (!why.contains(QLatin1String("UnknownObject"))
+                && !why.contains(QLatin1String("UnknownMethod"))
+                && !why.contains(QLatin1String("NameHasNoOwner"))
+                && !why.contains(QLatin1String("ServiceUnknown")))
+            qInfo("PROBE %s -> %s", qPrintable(key), qPrintable(why));
     }
+    if (error)
+        g_error_free(error);
+
+    self->m_pendingKeys.remove(key);
+    if (self->m_pendingKeys.isEmpty())
+        self->m_glibPump->stop();
 }
 
-void SystemProbe::mapCallError(QProcess::ProcessError)
+void SystemProbe::startGlibPump()
 {
-    QProcess *p = qobject_cast<QProcess *>(sender());
-    if (!p || !m_pending.contains(p))
-        return;
-    m_mapCache.insert(m_pending.take(p), QVariantMap());
-    p->deleteLater();
+    if (!m_glibPump->isActive())
+        m_glibPump->start();
+}
+
+void SystemProbe::pumpGlib()
+{
+    // Non-blocking and bounded: a source that is always ready must never spin
+    // the GUI thread. Replies land within one 50 ms interval, far inside the
+    // 8 s tick that consumes them.
+    for (int i = 0; i < 16 && g_main_context_iteration(nullptr, FALSE); ++i)
+        ;
 }
 
 QVariantMap SystemProbe::dbusProps(const QString &service, const QString &path,
@@ -806,8 +1057,8 @@ QString SystemProbe::prop(const QVariantMap &m, const QString &key)
 
 void SystemProbe::refreshDbus()
 {
-    // Fire off the async property-map reads first: gdbus answers in ~10 ms
-    // and the replies are picked up by the refreshers on the next tick.
+    // Fire off the async property-map reads first: each answers in ~10 ms and
+    // the replies are picked up by the refreshers on the next tick.
     static const char *const techPaths[] = {
         "/net/connman/technology/ethernet",
         "/net/connman/technology/wifi",
@@ -1000,8 +1251,14 @@ void SystemProbe::refreshOfono()
 
     const QString area = prop(reg, QLatin1String("LocationAreaCode"));
     const QString cid = prop(reg, QLatin1String("CellId"));
-    if (!area.isEmpty() || !cid.isEmpty())
+    if (!area.isEmpty() && !cid.isEmpty())
         set(QLatin1String("cell.location"), area + QLatin1String(" / ") + cid);
+    else if (!cid.isEmpty())
+        set(QLatin1String("cell.location"), cid);
+    else if (!area.isEmpty())
+        set(QLatin1String("cell.location"), area);
+    else
+        unset(QLatin1String("cell.location"));
 
     const QString mcc = prop(reg, QLatin1String("MobileCountryCode"));
     const QString mnc = prop(reg, QLatin1String("MobileNetworkCode"));

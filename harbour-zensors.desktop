@@ -6,6 +6,6 @@ Icon=harbour-zensors
 Exec=harbour-zensors
 
 [X-Sailjail]
-Permissions=Sensors;Location;Internet;Connman;Bluetooth;NFC;Audio;Microphone
+Permissions=Sensors;Location;Internet;Connman;Bluetooth;NFC;Audio;Microphone;Phone
 OrganizationName=com.example
 ApplicationName=harbour-zensors

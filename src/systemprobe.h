@@ -7,12 +7,17 @@
 #include <QVector>
 #include <QDateTime>
 #include <QHash>
-#include <QProcess>
+#include <QSet>
 
 class QAudioInput;
 class QIODevice;
 class QTimer;
 class QQuickWindow;
+
+// Opaque GLib handles: gio/gio.h is included by the .cpp only, these are the
+// two pointer types the async D-Bus reply callback signature needs.
+typedef struct _GObject GObject;
+typedef struct _GAsyncResult GAsyncResult;
 
 /*
  * SystemProbe: reads every meter the sandbox lets us read and publishes the
@@ -56,8 +61,6 @@ signals:
 private slots:
     void tick();
     void onMicReadyRead();
-    void mapCallFinished(int exitCode, QProcess::ExitStatus status);
-    void mapCallError(QProcess::ProcessError error);
 
 private:
     void set(const QString &key, const QVariant &value);
@@ -77,10 +80,12 @@ private:
     void refreshMce();
     void refreshBluez();
 
-    // Property maps are fetched asynchronously with "gdbus call": Qt's own
+    // Property maps are read through GDBus (libgio) asynchronously: Qt's own
     // demarshaller for a{sv} replies hands back empty keys here, and reading
-    // them as QVariant crashes inside libdbus. Results land in m_mapCache, so
-    // the two getters below are plain lookups.
+    // them as QVariant crashes inside libdbus. The reply is printed as GVariant
+    // text - the same text "gdbus call" produced - and scanned by
+    // parseGdbusMap(). Results land in m_mapCache, so the two getters below
+    // are plain lookups.
     void startMapCall(const QString &service, const QString &path,
                       const QString &iface, const QString &method,
                       const QStringList &args = QStringList());
@@ -92,17 +97,24 @@ private:
                       const QString &iface, const QString &method) const;
     static QString prop(const QVariantMap &m, const QString &key);
 
+    // GDBus delivers its replies through a GLib main context, and Qt's event
+    // loop does not run one; pumpGlib() iterates it while calls are in flight
+    // (started lazily by startGlibPump(), stopped when the last reply lands).
+    static void mapCallThunk(GObject *source, GAsyncResult *result,
+                             void *userData);
+    void startGlibPump();
+    void pumpGlib();
+
     QVariantMap m_values;
     bool m_dirty;
     int m_ticks;
     QDateTime m_lastTick;
     QQuickWindow *m_window;
 
-    // async gdbus property-map reads
-    QString m_gdbus;
-    bool m_gdbusChecked;
+    // async GDBus property-map reads
     QHash<QString, QVariantMap> m_mapCache;
-    QHash<QProcess *, QString> m_pending;
+    QSet<QString> m_pendingKeys;
+    QTimer *m_glibPump;
 
     qint64 m_prevCpuTotal;
     qint64 m_prevCpuIdle;

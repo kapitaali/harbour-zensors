@@ -16,6 +16,7 @@ BuildRequires: pkgconfig(Qt5Qml)
 BuildRequires: pkgconfig(Qt5Quick)
 BuildRequires: pkgconfig(Qt5DBus)
 BuildRequires: pkgconfig(Qt5Multimedia)
+BuildRequires: pkgconfig(gio-2.0)
 BuildRequires: desktop-file-utils
 
 %description
