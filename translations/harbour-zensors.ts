@@ -46,6 +46,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Zensors gathers every measurement the operating system lets an app read into one list: performance, battery, storage, thermals, display, network, radio, Bluetooth, location, motion, microphone and the plain system facts.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Values come from /proc and /sys, from the system daemons over D-Bus and from the Qt sensor, positioning and audio APIs. Probes the device does not have simply stay empty; nothing is invented.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -67,10 +71,6 @@
     </message>
     <message>
         <source>We love Open Source software and the Jolla ecosystem. If you want to support me or my work, please leave some tip here: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Zensors gathers every measurement the operating system lets an app read into one list: performance, battery, storage, thermals, display, network, radio, Bluetooth, location, motion, microphone and the plain system facts.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
