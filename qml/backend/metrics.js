@@ -13,6 +13,12 @@
 
 var dash = "—"
 
+// Shown instead of a dash when a backend row's probe object never came up:
+// a dash has to keep meaning "the subsystem answered with nothing", not "we
+// forgot to start reading it". The dashboard skips these and shows the
+// category hint, which says the same thing once instead of sixteen times.
+var probeNotStarted = "not started"
+
 /*
  * Category headings - the section rules on the dashboard and the title of
  * a category page - carry their own hue rather than the theme's highlight,
@@ -506,15 +512,17 @@ function filledCount(rows, values, probes) {
 }
 
 function valueFor(row, values, probes) {
-    if (row.from === "location" && probes && probes.location) {
+    if (row.from === "location") {
+        if (!probes || !probes.location) return probeNotStarted
         var loc = probes.location[row.prop]
         return (loc === undefined) ? null : loc
     }
-    if (row.from === "sensors" && probes && probes.sensors) {
+    if (row.from === "sensors") {
+        if (!probes || !probes.sensors) return probeNotStarted
         var s = probes.sensors[row.prop]
         return (s === undefined) ? null : s
     }
-    if (row.from) return null
+    if (row.from) return probeNotStarted
     return values[row.key]
 }
 
@@ -560,6 +568,7 @@ function dashboard(values, probes) {
         for (var r = 0; r < all.length; r++) {
             var v = valueFor(all[r], values, probes)
             if (v === undefined || v === null || v === "") continue
+            if (v === probeNotStarted) continue
             if (typeof v === "number" && isNaN(v)) continue
             // A reading can exist and still have nothing to say (a cooling
             // policy with no max state formats as an em dash); a cell that

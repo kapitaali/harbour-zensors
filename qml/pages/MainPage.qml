@@ -21,8 +21,47 @@ Page {
     id: page
 
     property var values: probe.values
-    property var cells: Metrics.dashboard(values, {})
+
+    // The motion and position probes live here as well as on their own
+    // pages, so the dashboard carries live readings instead of the
+    // "tap to read" placeholder it showed before - those two sections read
+    // as "nothing exposed here" while the sensors were perfectly working.
+    property var probes: ({ location: locationLoader.item, sensors: sensorLoader.item })
+    property int probeRevision: (locationLoader.item ? locationLoader.item.revision : 0)
+            + (sensorLoader.item ? sensorLoader.item.revision : 0)
+    property var cells: buildCells()
     allowedOrientations: Orientation.All
+
+    function buildCells() {
+        var _ = probeRevision          // re-run when a probe reports a reading
+        return Metrics.dashboard(values, probes)
+    }
+
+    Loader {
+        id: locationLoader
+        source: Qt.resolvedUrl("LocationProbe.qml")
+    }
+
+    Loader {
+        id: sensorLoader
+        source: Qt.resolvedUrl("SensorsProbe.qml")
+    }
+
+    // Both pages hold their own probe, so only the page in front keeps its
+    // one running: the objects stay alive across navigation (no second fix
+    // needed on the way back) while two readers of the same sensor never run
+    // at the same time.
+    Binding {
+        target: locationLoader.item
+        property: "active"
+        value: page.status === PageStatus.Active
+    }
+
+    Binding {
+        target: sensorLoader.item
+        property: "active"
+        value: page.status === PageStatus.Active
+    }
 
     // label line + value line + padding + a sliver for the graph bar
     readonly property real cellHeight: Theme.fontSizeExtraSmall + Theme.fontSizeSmall

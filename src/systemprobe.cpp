@@ -113,6 +113,7 @@ QVariant readGContainer(const QString &s, int *i, QChar close)
 {
     ++(*i);
     QVariantList list;
+    QVariantMap map;
     const bool dict = (close == QLatin1Char('}'));
     for (;;) {
         skipSpace(s, i);
@@ -122,13 +123,14 @@ QVariant readGContainer(const QString &s, int *i, QChar close)
             ++(*i);
             break;
         }
+        QString key;
         if (dict) {
             // A dict entry reads <key> ':' <value>. The colon is not anything
-            // the value reader consumes, so handle it here and keep only the
-            // value. Before this, the scan died on the first dict and every
-            // key after it was lost - ofono's ServiceNumbers came before
-            // PinRequired, so the SIM PIN state never appeared.
-            QString key;
+            // the value reader consumes, so handle it here. Before this, the
+            // scan died on the first dict and every key after it was lost -
+            // ofono's ServiceNumbers came before PinRequired, so the SIM PIN
+            // state never appeared. The keys are kept, because callers read
+            // one property out of the dict rather than the dict as a whole.
             if (!readQuoted(s, i, &key))
                 return QVariant();
             skipSpace(s, i);
@@ -139,7 +141,10 @@ QVariant readGContainer(const QString &s, int *i, QChar close)
         const QVariant v = readGVariant(s, i);
         if (!v.isValid())
             return QVariant();
-        list.append(v);
+        if (dict)
+            map.insert(key, v);
+        else
+            list.append(v);
         skipSpace(s, i);
         if (*i < s.size() && s.at(*i) == QLatin1Char(',')) {
             ++(*i);
@@ -152,14 +157,7 @@ QVariant readGContainer(const QString &s, int *i, QChar close)
         }
         return QVariant();
     }
-    if (dict) {
-        // A single entry is that entry's value; more than one is the list of
-        // values. Either way the text parses and the caller moves on.
-        if (list.size() == 1)
-            return list.at(0);
-        return list;
-    }
-    return list;
+    return dict ? QVariant(map) : QVariant(list);
 }
 
 QVariant readGVariant(const QString &s, int *i)
@@ -288,6 +286,38 @@ QVariantMap parseGdbusMap(const QString &text)
     return map;
 }
 
+/*
+ * net.connman.Manager.GetServices answers
+ *
+ *   ([(objectpath '/net/connman/service/...', {'State': <'online'>, ...}), ...],)
+ *
+ * an array of object-path/property-map pairs. Walking the structures with
+ * readGVariant() is the only safe way in: parseGdbusMap() would stop at the
+ * first nested Ethernet or IPv4 dict and hand back half a service, and the
+ * reply that matters (Roaming, State) sits past them.
+ */
+QList<QVariantMap> parseGdbusServices(const QString &text)
+{
+    QString s = text;
+    s.remove(QLatin1Char('\n'));
+    s.remove(QLatin1Char('\r'));
+    s.remove(QLatin1Char('\t'));
+
+    int i = 0;
+    const QVariantList outer = readGVariant(s, &i).toList();
+
+    QList<QVariantMap> out;
+    if (outer.isEmpty())
+        return out;
+    const QVariantList services = outer.at(0).toList();
+    for (int n = 0; n < services.size(); ++n) {
+        const QVariantList pair = services.at(n).toList();
+        if (pair.size() == 2)
+            out.append(pair.at(1).toMap());
+    }
+    return out;
+}
+
 bool readNumber(const QString &path, double *out)
 {
     const QString text = readTrimmed(path);
@@ -337,11 +367,13 @@ double percentChange(qint64 nowTotal, qint64 nowIdle, qint64 prevTotal, qint64 p
 }
 
 // Context handed to the async GDBus reply callback: which cache entry the
-// answer belongs to, and who to give it to.
+// answer belongs to, and who to give it to. serviceList marks the one reply
+// that is an array of property maps rather than a single map.
 struct MapCall
 {
     SystemProbe *probe;
     QString key;
+    bool serviceList;
 };
 
 } // namespace
@@ -666,17 +698,24 @@ void SystemProbe::refreshPower()
         unset(QLatin1String("bat.status"));
 
     // Voltage and current first - the energy fallback below needs voltage.
-    double volts = -1;
+    // Presence is tracked separately from the reading itself: current_now is
+    // negative whenever the battery is discharging, so testing the value for
+    // ">= 0" read a perfectly live gauge as missing and left Power draw blank.
+    double volts = 0;
+    bool haveVolts = false;
     if (readNumber(bat + QLatin1String("voltage_now"), &v)) {
         volts = v;
+        haveVolts = true;
         set(QLatin1String("bat.voltage"), volts / 1000000.0);
     } else {
         unset(QLatin1String("bat.voltage"));
     }
 
-    double amps = -1;
+    double amps = 0;
+    bool haveAmps = false;
     if (readNumber(bat + QLatin1String("current_now"), &v)) {
         amps = v;
+        haveAmps = true;
         set(QLatin1String("bat.current"), amps / 1000000.0);
     } else {
         unset(QLatin1String("bat.current"));
@@ -713,7 +752,7 @@ void SystemProbe::refreshPower()
 
     if (eNow >= 0) {
         set(QLatin1String("bat.energyNow"), eNow / 1000.0);          // uWh -> mWh
-    } else if (cNow >= 0 && volts > 0) {
+    } else if (cNow >= 0 && haveVolts) {
         set(QLatin1String("bat.energyNow"), cNow * volts / 1e9);     // uAh * uV -> mWh
     } else {
         unset(QLatin1String("bat.energyNow"));
@@ -721,7 +760,7 @@ void SystemProbe::refreshPower()
 
     if (readNumber(bat + QLatin1String("power_now"), &v)) {
         set(QLatin1String("bat.power"), v / 1000000.0);
-    } else if (volts >= 0 && amps >= 0) {
+    } else if (haveVolts && haveAmps) {
         // uV * uA is pico-watts.
         set(QLatin1String("bat.power"), qAbs(volts * amps) / 1e12);
     } else {
@@ -907,7 +946,7 @@ static QString mapKey(const QString &service, const QString &path,
 
 void SystemProbe::startMapCall(const QString &service, const QString &path,
                                const QString &iface, const QString &method,
-                               const QStringList &args)
+                               const QStringList &args, bool serviceList)
 {
     const QString key = mapKey(service, path, iface, method);
     if (m_pendingKeys.contains(key))
@@ -944,12 +983,19 @@ void SystemProbe::startMapCall(const QString &service, const QString &path,
 
     const QByteArray dest = service.toLatin1();
     const QByteArray objPath = path.toLatin1();
-    const QByteArray ifaceName = iface.toLatin1();
     const QByteArray methodName = method.toLatin1();
+
+    // GetAll lives on org.freedesktop.DBus.Properties, not on the interface
+    // whose properties are wanted: naming org.bluez.Adapter1 made bluez
+    // answer UnknownMethod, which is why every adapter reading was empty.
+    const QByteArray ifaceName = (method == QLatin1String("GetAll"))
+            ? QByteArrayLiteral("org.freedesktop.DBus.Properties")
+            : iface.toLatin1();
 
     MapCall *ctx = new MapCall;
     ctx->probe = this;
     ctx->key = key;
+    ctx->serviceList = serviceList;
     m_pendingKeys.insert(key);
 
     // Interface and method travel as separate arguments here (unlike gdbus,
@@ -972,6 +1018,7 @@ void SystemProbe::mapCallThunk(GObject *source, GAsyncResult *result,
     MapCall *ctx = static_cast<MapCall *>(userData);
     SystemProbe *self = ctx->probe;
     const QString key = ctx->key;
+    const bool serviceList = ctx->serviceList;
     delete ctx;
 
     GError *error = nullptr;
@@ -979,12 +1026,33 @@ void SystemProbe::mapCallThunk(GObject *source, GAsyncResult *result,
                                                     result, &error);
     if (reply) {
         gchar *text = g_variant_print(reply, TRUE);
-        const QVariantMap map = parseGdbusMap(QString::fromUtf8(text));
+        const QString body = QString::fromUtf8(text);
         g_free(text);
         g_variant_unref(reply);
-        self->m_mapCache.insert(key, map);
-        if (!map.isEmpty())
-            qInfo("PROBE %s -> %d keys", qPrintable(key), map.size());
+        if (serviceList) {
+            // One cache entry per connman service, keyed by its Type, so a
+            // reader can ask for the cellular or the wifi map directly. The
+            // unqualified key still holds the first one (or nothing at all),
+            // which is what marks a reply as having arrived.
+            const QList<QVariantMap> services = parseGdbusServices(body);
+            for (int n = 0; n < services.size(); ++n) {
+                const QString type = services.at(n).value(
+                        QLatin1String("Type")).toString();
+                if (!type.isEmpty())
+                    self->m_mapCache.insert(key + QLatin1Char('#') + type,
+                                            services.at(n));
+            }
+            self->m_mapCache.insert(key, services.isEmpty()
+                                    ? QVariantMap() : services.first());
+            if (!services.isEmpty())
+                qInfo("PROBE %s -> %d services", qPrintable(key),
+                      services.size());
+        } else {
+            const QVariantMap map = parseGdbusMap(body);
+            self->m_mapCache.insert(key, map);
+            if (!map.isEmpty())
+                qInfo("PROBE %s -> %d keys", qPrintable(key), map.size());
+        }
     } else {
         // Object absent or refused by policy: an empty map is the right
         // answer, and it also records that we did get an answer. The absent
@@ -1037,6 +1105,21 @@ QVariantMap SystemProbe::dbusGetAll(const QString &service, const QString &path,
                                    QLatin1String("GetAll")));
 }
 
+// One connman service's properties, by technology type ("wifi", "cellular").
+// Technology objects only carry Powered/Connected - connman has no State on
+// them - so the state a user thinks of (online, ready, idle) and Roaming are
+// service properties, answered by Manager.GetServices.
+QVariantMap SystemProbe::dbusService(const QString &type) const
+{
+    const QString base = mapKey(QLatin1String("net.connman"),
+                                QLatin1String("/"),
+                                QLatin1String("net.connman.Manager"),
+                                QLatin1String("GetServices"));
+    if (m_mapCache.value(base).isEmpty())
+        return QVariantMap();      // no reply: hide whatever was cached before
+    return m_mapCache.value(base + QLatin1Char('#') + type);
+}
+
 QVariant SystemProbe::dbusCall(const QString &service, const QString &path,
                                const QString &iface, const QString &method) const
 {
@@ -1085,6 +1168,14 @@ void SystemProbe::refreshDbus()
                  QLatin1String("org.bluez.Adapter1"),
                  QLatin1String("GetAll"),
                  QStringList() << QLatin1String("org.bluez.Adapter1"));
+
+    // Service-level properties. Technology objects only report
+    // Powered/Connected, which left "WLAN state" and "Ethernet state" empty
+    // and never said whether the phone is roaming; services carry State and
+    // Roaming. The reply is an array, so it is split up by type on arrival.
+    startMapCall(QLatin1String("net.connman"), QLatin1String("/"),
+                 QLatin1String("net.connman.Manager"),
+                 QLatin1String("GetServices"), QStringList(), true);
 
     refreshMce();
 }
@@ -1141,20 +1232,28 @@ void SystemProbe::refreshConnman()
         const QString text = connected ? QObject::tr("connected")
                              : (powered ? QObject::tr("available")
                                         : QObject::tr("off"));
-        const QString state = prop(tech, QLatin1String("State"));
+
+        // Technology objects carry no State - that is a service property -
+        // so the two "state" rows read the service for this technology, and
+        // fall back to what the technology itself can vouch for.
+        const QVariantMap svc = dbusService(type);
+        QString detail = connected ? QObject::tr("connected")
+                         : (tech.value(QLatin1String("Tethering")).toBool()
+                                    ? QObject::tr("tethering")
+                                    : QObject::tr("not connected"));
+        if (svc.contains(QLatin1String("State")))
+            detail = prop(svc, QLatin1String("State"));
 
         if (type == QLatin1String("ethernet")) {
             set(QLatin1String("net.eth.state"), text);
-            if (!state.isEmpty())
-                set(QLatin1String("net.eth.detail"), state);
+            set(QLatin1String("net.eth.detail"), detail);
         } else if (type == QLatin1String("wifi")) {
             set(QLatin1String("net.wifi.state"), text);
-            if (!state.isEmpty())
-                set(QLatin1String("net.wifi.detail"), state);
+            set(QLatin1String("net.wifi.detail"), detail);
         } else if (type == QLatin1String("gps")) {
             set(QLatin1String("net.gps.power"), powered);
         } else if (type == QLatin1String("cellular")) {
-            set(QLatin1String("net.cell.state"), text);
+            set(QLatin1String("net.cell.state"), detail);
         }
     }
     set(QLatin1String("net.techCount"), count);
@@ -1269,8 +1368,15 @@ void SystemProbe::refreshOfono()
         set(QLatin1String("cell.strength"), reg.value(QLatin1String("Strength")).toInt());
     else
         unset(QLatin1String("cell.strength"));
-    if (reg.contains(QLatin1String("Roaming")))
-        set(QLatin1String("cell.roaming"), reg.value(QLatin1String("Roaming")).toBool());
+    // ofono's NetworkRegistration carries no Roaming property on this modem;
+    // connman does, on the cellular service, so ask there first.
+    const QVariantMap cellSvc = dbusService(QLatin1String("cellular"));
+    if (cellSvc.contains(QLatin1String("Roaming")))
+        set(QLatin1String("cell.roaming"),
+            cellSvc.value(QLatin1String("Roaming")).toBool());
+    else if (reg.contains(QLatin1String("Roaming")))
+        set(QLatin1String("cell.roaming"),
+            reg.value(QLatin1String("Roaming")).toBool());
     else
         unset(QLatin1String("cell.roaming"));
 
@@ -1300,12 +1406,27 @@ void SystemProbe::refreshBluez()
     if (adapter.isEmpty()) {
         unset(QLatin1String("bt.powered"));
         unset(QLatin1String("bt.discovering"));
+        unset(QLatin1String("bt.address"));
+        unset(QLatin1String("bt.alias"));
         return;
     }
     set(QLatin1String("bt.powered"), adapter.value(QLatin1String("Powered")).toBool());
     set(QLatin1String("bt.discovering"), adapter.value(QLatin1String("Discovering")).toBool());
     set(QLatin1String("bt.address"), prop(adapter, QLatin1String("Address")));
-    set(QLatin1String("bt.alias"), prop(adapter, QLatin1String("Alias")));
+
+    // bluez fills Alias from the system name, but Sailfish leaves both Alias
+    // and Name empty until Bluetooth has been switched on. An empty string
+    // renders as a dash, which reads as "no adapter", so walk the chain down
+    // to the host name - the same value bluez itself would have used.
+    QString alias = prop(adapter, QLatin1String("Alias"));
+    if (alias.isEmpty())
+        alias = prop(adapter, QLatin1String("Name"));
+    if (alias.isEmpty())
+        alias = readTrimmed(QLatin1String("/proc/sys/kernel/hostname"));
+    if (alias.isEmpty())
+        unset(QLatin1String("bt.alias"));
+    else
+        set(QLatin1String("bt.alias"), alias);
 }
 
 // ---------------------------------------------------------------------- mic

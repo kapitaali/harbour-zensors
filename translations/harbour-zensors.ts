@@ -103,5 +103,13 @@
         <source>off</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>not connected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>tethering</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 </TS>

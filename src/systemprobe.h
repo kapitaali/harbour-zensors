@@ -88,11 +88,13 @@ private:
     // are plain lookups.
     void startMapCall(const QString &service, const QString &path,
                       const QString &iface, const QString &method,
-                      const QStringList &args = QStringList());
+                      const QStringList &args = QStringList(),
+                      bool serviceList = false);
     QVariantMap dbusProps(const QString &service, const QString &path,
                           const QString &iface) const;   // iface.GetProperties
     QVariantMap dbusGetAll(const QString &service, const QString &path,
                            const QString &iface) const;  // Properties.GetAll
+    QVariantMap dbusService(const QString &type) const;  // connman service
     QVariant dbusCall(const QString &service, const QString &path,
                       const QString &iface, const QString &method) const;
     static QString prop(const QVariantMap &m, const QString &key);

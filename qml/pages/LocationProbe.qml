@@ -52,7 +52,11 @@ Item {
             probe.speed = NaN
             probe.course = NaN
             probe.timestamp = null
-            probe.sourceName = ""
+            // PositionSource.sourceName only exists on newer QtPositioning
+            // than this device ships, where reading it gives undefined and
+            // the row would sit at a dash forever. Say what is being asked
+            // instead: the system service, which is what it always is here.
+            probe.sourceName = positionSource.active ? "system location service" : ""
             probe.bump()
             return
         }
@@ -66,8 +70,10 @@ Item {
         probe.course = numberOrNaN(p.course)
         probe.timestamp = (p.timestamp !== undefined && p.timestamp !== null)
                 ? new Date(p.timestamp) : null
-        probe.sourceName = positionSource.sourceName !== undefined
+        var src = (positionSource.sourceName !== undefined
+                   && positionSource.sourceName !== null)
                 ? String(positionSource.sourceName) : ""
+        probe.sourceName = src.length > 0 ? src : "system location service"
         probe.bump()
     }
 
