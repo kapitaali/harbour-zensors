@@ -40,7 +40,7 @@ Page {
                 wrapMode: Text.Wrap
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
-                text: qsTr("Values come from /proc and /sys, from the system daemons over D-Bus and from the Qt sensor, positioning and audio APIs. Probes the device does not have simply stay empty; nothing is invented.")
+                text: qsTr("Values come from /proc and /sys, from the system daemons over D-Bus and from the Qt sensor, positioning and audio APIs.")
             }
 
             Text {
