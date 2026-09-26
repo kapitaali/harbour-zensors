@@ -10,6 +10,7 @@ Page {
     id: page
 
     property var values: probe.values
+    property string supportLink: "https://ko-fi.com/kapitaali"
     allowedOrientations: Orientation.All
 
     SilicaFlickable {
@@ -57,10 +58,12 @@ Page {
                     if (os !== undefined) lines.push(qsTr("System: %1").arg(os))
                     if (kernel !== undefined) lines.push(qsTr("Kernel: %1").arg(kernel))
                     lines.push(qsTr("Updated every two seconds"))
+                    lines.push(qsTr("We love Open Source software and the Jolla ecosystem. If you want to support me or my work, please leave some tip here: %1").arg(page.supportLink))
                     return lines.join("\n")
                 }
+                linkEnabled: true
+                onLinkActivated: Qt.openUrlExternally(link)
             }
-        }
 
         VerticalScrollDecorator {}
     }
