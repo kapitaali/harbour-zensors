@@ -55,6 +55,7 @@ Page {
                     lines.push(qsTr("Updated every two seconds"))
                     var line = qsTr("We love Open Source software and the Jolla ecosystem. If you want to support me or my work, please leave some tip here: <a href=\"%1\">%1</a>").arg(page.supportLink)
                     lines.push(line)
+                    lines.push("")
                     var device = values["sys.device"]
                     var os = values["sys.prettyName"]
                     var kernel = values["sys.kernel"]
