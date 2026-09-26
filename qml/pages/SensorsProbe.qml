@@ -1,5 +1,7 @@
 import QtQuick 2.6
-import QtSensors
+// Version required, same as LocationProbe: a versionless library import is
+// rejected on Qt 5 and this file would never load at all.
+import QtSensors 5.6
 
 /*
  * Reads the on-board motion and environment sensors.
@@ -15,6 +17,7 @@ Item {
     visible: false
     property bool active: true
     property int revision: 0
+    property real lastBump: 0
 
     property real ax: NaN
     property real ay: NaN
@@ -37,7 +40,14 @@ Item {
             + (magAvailable ? 1 : 0) + (lightAvailable ? 1 : 0)
             + (proxAvailable ? 1 : 0)
 
+    // Same as LocationProbe: the motion sensors deliver readings many times a
+    // second, and every bump makes all ten rows on the page re-read their
+    // value. Publish at most once a second; the rows track their own
+    // properties directly, so no reading is lost.
     function bump() {
+        var now = Date.now()
+        if (now - probe.lastBump < 1000) return
+        probe.lastBump = now
         probe.revision++
     }
 
@@ -101,4 +111,6 @@ Item {
             }
         }
     }
+
+    Component.onCompleted: console.log("SensorsProbe started")
 }

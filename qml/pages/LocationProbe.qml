@@ -1,5 +1,8 @@
 import QtQuick 2.6
-import QtPositioning
+// A library import must carry a version on Qt 5: without one the module is
+// rejected with "Library import requires a version", the Loader above never
+// gets an item and every location row reads "not started" for ever.
+import QtPositioning 5.4
 
 /*
  * Reads the position through the system location service.
@@ -15,6 +18,7 @@ Item {
     visible: false
     property bool active: true
     property int revision: 0
+    property real lastBump: 0
 
     property bool valid: false
     property real latitude: NaN
@@ -34,7 +38,13 @@ Item {
         onPositionChanged: probe.sync()
     }
 
+    // A revision bump makes every row on the page re-read its value, and the
+    // position can update many times a second. Publish at most once a second;
+    // the rows also track their own properties directly, so no reading is lost.
     function bump() {
+        var now = Date.now()
+        if (now - probe.lastBump < 1000) return
+        probe.lastBump = now
         probe.revision++
     }
 
@@ -83,5 +93,8 @@ Item {
         return isNaN(n) ? NaN : n
     }
 
-    Component.onCompleted: sync()
+    Component.onCompleted: {
+        console.log("LocationProbe started")
+        sync()
+    }
 }

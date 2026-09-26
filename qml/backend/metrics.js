@@ -511,7 +511,25 @@ function filledCount(rows, values, probes) {
     return n
 }
 
+/*
+ * The one place a row value becomes text. The "not started" sentinel is a
+ * string, so a formatter would read it as data: fmtFix() would claim a fix
+ * exists and fmtAvail() would claim a sensor is present, both from the fact
+ * that we never got as far as asking. Pass it through verbatim instead, and
+ * every formatter below only ever sees a real reading.
+ */
+function formatRow(row, value, values) {
+    if (value === probeNotStarted) return probeNotStarted
+    return row.fmt ? row.fmt(value, values) : fmtText(value)
+}
+
 function valueFor(row, values, probes) {
+    // A delegate can ask one evaluation before its row has been resolved, and
+    // row[] can be short while a page is being pushed. "No reading" is the
+    // honest answer for both - and it must never throw, because this is
+    // reached from a binding during pageStack.push(), where an exception
+    // aborts the whole push.
+    if (row === undefined || row === null) return undefined
     if (row.from === "location") {
         if (!probes || !probes.location) return probeNotStarted
         var loc = probes.location[row.prop]
@@ -574,7 +592,7 @@ function dashboard(values, probes) {
             // policy with no max state formats as an em dash); a cell that
             // only repeats its own label is noise, so drop it here and let
             // the section count match what is on screen.
-            var text = all[r].fmt ? all[r].fmt(v, values) : fmtText(v)
+            var text = formatRow(all[r], v, values)
             if (text === dash) continue
             live.push({ row: all[r], text: text })
         }

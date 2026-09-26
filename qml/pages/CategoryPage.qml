@@ -22,6 +22,13 @@ Page {
     property var probes: ({ location: locationLoader.item, sensors: sensorLoader.item })
     property int filled: Metrics.filledCount(rows, values, probes)
 
+    // Stands in for a row a delegate has not been given yet: `model` and
+    // `rows` are separate bindings and update in either order while a page is
+    // pushed, so for one evaluation a delegate can hold an index the array has
+    // not grown to. Reading an empty row yields a dash; reading `undefined`
+    // throws, and the exception aborts the whole pageStack.push().
+    readonly property var emptyRow: ({ label: "", fmt: null })
+
     allowedOrientations: Orientation.All
 
     function valueOf(row) {
@@ -33,15 +40,22 @@ Page {
         id: locationLoader
         active: category.id === "location"
         source: Qt.resolvedUrl("LocationProbe.qml")
+        onStatusChanged: if (status === Loader.Error)
+            console.error("LocationProbe did not load:", source)
     }
 
     Loader {
         id: sensorLoader
         active: category.id === "sensors"
         source: Qt.resolvedUrl("SensorsProbe.qml")
+        onStatusChanged: if (status === Loader.Error)
+            console.error("SensorsProbe did not load:", source)
     }
 
     Component.onCompleted: {
+        console.log("CATEGORY", categoryIndex, category ? category.id : "?",
+                    "locationProbe", locationLoader.status,
+                    "sensorsProbe", sensorLoader.status)
         if (category.id === "audio")
             probe.setMicActive(true)
     }
@@ -91,9 +105,19 @@ Page {
         delegate: BackgroundItem {
             id: delegate
 
-            property var row: page.rows[index]
-            property var raw: page.valueOf(row)
-            property bool hasValue: raw !== undefined && raw !== null
+            property var row: (page.rows && index < page.rows.length)
+                    ? page.rows[index] : page.emptyRow
+            // `row` can still be undefined for the one evaluation before its
+            // own binding has run; handing that to valueFor() would throw
+            // inside the push that triggered the repaint, and the page would
+            // never open. Nothing to read yet is just "no reading".
+            property var raw: row !== undefined && row !== null
+                    ? page.valueOf(row) : undefined
+            // "not started" is text, not a reading: it must stay verbatim
+            // and be dimmed like any other missing value, never handed to a
+            // formatter that would read the string as a positive answer.
+            property bool notStarted: raw === Metrics.probeNotStarted
+            property bool hasValue: !notStarted && raw !== undefined && raw !== null && raw !== ""
                     && !(typeof raw === "number" && isNaN(raw))
             property real barFraction: {
                 if (!row.bar || !hasValue) return 0
@@ -103,9 +127,7 @@ Page {
                 return Math.max(0, Math.min(1, n / max))
             }
             property string subText: row.subKey ? Metrics.fmtText(page.values[row.subKey]) : ""
-            property string valueText: hasValue
-                    ? (row.fmt ? row.fmt(raw, page.values) : Metrics.fmtText(raw))
-                    : Metrics.dash
+            property string valueText: Metrics.formatRow(row, raw, page.values)
 
             height: content.height + Theme.paddingSmall
 

@@ -27,24 +27,47 @@ Page {
     // "tap to read" placeholder it showed before - those two sections read
     // as "nothing exposed here" while the sensors were perfectly working.
     property var probes: ({ location: locationLoader.item, sensors: sensorLoader.item })
-    property int probeRevision: (locationLoader.item ? locationLoader.item.revision : 0)
-            + (sensorLoader.item ? sensorLoader.item.revision : 0)
-    property var cells: buildCells()
+
+    // Written on a tick, never bound: Metrics.dashboard() reads the live
+    // position and sensor properties, so a binding would re-run on every
+    // reading - hundreds a second once the probes are actually running -
+    // and rebuild the whole grid each time. That is what froze the app on
+    // the phone. probe.values already updates every 2 s; the grid follows
+    // the same tick, and only while this page is in front.
+    property var cells: []
     allowedOrientations: Orientation.All
 
     function buildCells() {
-        var _ = probeRevision          // re-run when a probe reports a reading
         return Metrics.dashboard(values, probes)
+    }
+
+    Timer {
+        id: cellsRefresh
+        interval: 2000
+        repeat: true
+        running: page.status === PageStatus.Active
+        onTriggered: page.cells = page.buildCells()
+    }
+
+    onStatusChanged: {
+        if (status === PageStatus.Active) {
+            page.cells = page.buildCells()
+            cellsRefresh.restart()
+        }
     }
 
     Loader {
         id: locationLoader
         source: Qt.resolvedUrl("LocationProbe.qml")
+        onStatusChanged: if (status === Loader.Error)
+            console.error("LocationProbe did not load:", source)
     }
 
     Loader {
         id: sensorLoader
         source: Qt.resolvedUrl("SensorsProbe.qml")
+        onStatusChanged: if (status === Loader.Error)
+            console.error("SensorsProbe did not load:", source)
     }
 
     // Both pages hold their own probe, so only the page in front keeps its
@@ -83,11 +106,14 @@ Page {
     readonly property real barRowGap: 9
 
     Component.onCompleted: {
+        page.cells = page.buildCells()
         console.log("LAYOUT page", page.width, "x", page.height,
                     "flow", flow.width, "cols", flow.columns,
                     "margin", Theme.horizontalPageMargin,
                     "fontSizes", Theme.fontSizeExtraSmall, Theme.fontSizeSmall, Theme.fontSizeLarge)
         console.log("PROBEKEYS", Object.keys(probe.values).sort().join(","))
+        console.log("PROBES location", locationLoader.status, "sensors", sensorLoader.status,
+                    "items", locationLoader.item ? 1 : 0, sensorLoader.item ? 1 : 0)
     }
 
     SilicaFlickable {
