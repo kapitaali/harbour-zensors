@@ -43,12 +43,13 @@ Page {
                 text: qsTr("Values come from /proc and /sys, from the system daemons over D-Bus and from the Qt sensor, positioning and audio APIs. Probes the device does not have simply stay empty; nothing is invented.")
             }
 
-            Label {
+            Text {
                 x: Theme.horizontalPageMargin
                 width: page.width - 2 * Theme.horizontalPageMargin
                 wrapMode: Text.Wrap
                 color: Theme.secondaryColor
                 font.pixelSize: Theme.fontSizeSmall
+                textFormat: Text.RichText
                 text: {
                     var lines = []
                     var device = values["sys.device"]
@@ -58,10 +59,10 @@ Page {
                     if (os !== undefined) lines.push(qsTr("System: %1").arg(os))
                     if (kernel !== undefined) lines.push(qsTr("Kernel: %1").arg(kernel))
                     lines.push(qsTr("Updated every two seconds"))
-                    lines.push(qsTr("We love Open Source software and the Jolla ecosystem. If you want to support me or my work, please leave some tip here: %1").arg(page.supportLink))
+                    var line = qsTr("We love Open Source software and the Jolla ecosystem. If you want to support me or my work, please leave some tip here: <a href=\"%1\">%1</a>").arg(page.supportLink)
+                    lines.push(line)
                     return lines.join("\n")
                 }
-                linkEnabled: true
                 onLinkActivated: Qt.openUrlExternally(link)
             }
 

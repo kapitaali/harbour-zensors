@@ -70,7 +70,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>We love Open Source software and the Jolla ecosystem. If you want to support me or my work, please leave some tip here: %1</source>
+        <source>We love Open Source software and the Jolla ecosystem. If you want to support me or my work, please leave some tip here: &lt;a href=&quot;%1&quot;&gt;%1&lt;/a&gt;</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
