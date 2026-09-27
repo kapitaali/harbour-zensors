@@ -7,5 +7,5 @@ Exec=harbour-zensors
 
 [X-Sailjail]
 Permissions=Sensors;Location;Internet;Connman;Bluetooth;NFC;Audio;Microphone;Phone
-OrganizationName=com.example
+OrganizationName=com.kapitaali
 ApplicationName=harbour-zensors
