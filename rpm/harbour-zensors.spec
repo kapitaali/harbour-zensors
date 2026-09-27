@@ -1,6 +1,6 @@
 Name:       harbour-zensors
 Summary:    Every sensor and meter in one list
-Version:    0.1
+Version:    0.2
 Release:    1
 Group:      Qt/Qt
 License:    GPL-3.0-only
