@@ -1,59 +1,90 @@
 # harbour-zensors
 
-Zensors displays all the available sensor data from your SailfishOS device.
+Zensors gathers every measurement the operating system lets an app read into
+one information-dense dashboard: performance, battery, storage, thermals,
+display, network, cellular, Bluetooth, location, motion, audio and the plain
+system facts. Each reading is one tap away from its full category page, which
+also lists what the device does *not* expose.
 
-## Build & Run
+Values come from `/proc` and `/sys`, from the system daemons over D-Bus, and
+from the Qt sensor, positioning and audio APIs. A dash means the subsystem
+answered with nothing -- never a missing reading, and nothing is invented.
 
-**In the Sailfish IDE:** `File > Open File or Project > harbour-zensors.pro`, pick a kit
-(`SailfishOS-<ver>-i486` for emulator, `-armv7hl` / `-aarch64` for device), then run.
+The app runs entirely on your device. It has no accounts, makes no network
+connections, sends no analytics, and stores nothing outside its own private
+data.
 
-**With sfdk (CLI):**
+## Installing
+
+### From Harbour
+
+Search for **Zensors** in the Jolla Store on your Sailfish device and install
+it. (Harbour submission in progress.)
+
+### From the RPM
+
+Download the RPM for your architecture from the
+[releases page](https://github.com/kapitaali/harbour-zensors/releases), copy it
+to the device, and install it:
 
 ```bash
-./scripts/build.sh            # build RPM
-./scripts/build.sh --sign     # signed RPM (needs signing config, see scripts/build.sh)
+scp harbour-zensors-0.1-1.<arch>.rpm defaultuser@<phone-ip>:/tmp/
+ssh defaultuser@<phone-ip> "devel-su -c 'rpm -Uvh /tmp/harbour-zensors-0.1-1.<arch>.rpm'"
 ```
 
-Deploy by copying `RPMS/*.rpm` to the device and `rpm -i`, or let the IDE's
-"Deploy as RPM Package" kit option handle it.
+`<arch>` is `aarch64` (most phones) or `armv7hl` (older 32-bit devices).
 
-## Rename the template
+## Building
 
-```bash
-./scripts/rename.sh harbour-zensors harbour-yourapp
+### With sfdk (CLI)
+
+```sh
+# Phone (aarch64)
+sfdk build-shell make -o Makefile distclean
+sfdk -c target=SailfishOS-<ver>-aarch64 build
+
+# Phone (armv7hl)
+sfdk build-shell make -o Makefile distclean
+sfdk -c target=SailfishOS-<ver>-armv7hl build
+
+# Emulator
+sfdk -c target=SailfishOS-<ver>-i486 build
 ```
+
+Replace `<ver>` with your installed SDK version (e.g. `5.1.0.11`). RPMs land in
+`RPMS/SailfishOS-<ver>-<arch>/harbour-zensors-<ver>.<arch>.rpm`.
+
+**Important:** switching targets requires `make distclean` first, or you will
+package the previous target's binary.
+
+### In the Sailfish IDE
+
+`File > Open File or Project > harbour-zensors.pro`, pick a kit
+(`SailfishOS-<ver>-i486` for emulator, `-armv7hl` / `-aarch64` for device),
+then run.
 
 ## Project layout
 
 | Path | Purpose |
 |---|---|
 | `harbour-zensors.pro` | qmake project; `CONFIG += sailfishapp` pulls standard install rules |
-| `src/harbour-zensors.cpp` | Entry point: `SailfishApp::main()` loads `qml/harbour-zensors.qml` |
+| `src/` | C++ backend: `SystemProbe` reads every meter and exposes `probe.values` |
 | `qml/harbour-zensors.qml` | `ApplicationWindow`, page stack, cover |
-| `qml/pages/` | Page components (pull-down menu, page stack demo) |
-| `qml/cover/CoverPage.qml` | Home screen cover + cover action |
-| `rpm/harbour-zensors.spec` | RPM packaging (`%build`, `%install`, `%files`) |
+| `qml/pages/` | Dashboard, category pages, About page |
+| `qml/cover/` | Home screen cover + refresh action |
+| `rpm/harbour-zensors.spec` | RPM packaging |
 | `harbour-zensors.desktop` | Launcher entry incl. `[X-Sailjail]` sandbox permissions |
-| `icons/` | App icons 86/108/128/172 (generate with `scripts/generate-icons.sh`) |
+| `icons/` | App icons (86/108/128/172 px) |
 | `translations/` | `qsTr()` translation sources (`.ts`) |
-| `tests/auto/` | Qt Quick Test skeleton + `tests.xml` for CI |
+| `PRIVACY.md` | Privacy policy (no data collection, no network) |
+| `LICENSE` | GPL-3.0 |
 
-## Harbour checklist
+## Permissions
 
-- [x] Target/icon/desktop all named `harbour-zensors`
-- [x] `[X-Sailjail]` section with minimal permissions (`Internet`)
-- [x] Only allowlisted QML imports (`QtQuick 2.6`, `Sailfish.Silica 1.0`)
-- [x] RPM spec limited to allowlisted `Requires`/`BuildRequires`
-- [x] All user-visible strings wrapped in `qsTr()`
-- [x] Icon PNGs generated (run `scripts/generate-icons.sh`)
-- [ ] RPM validator passes on deploy (shown in the IDE compile window)
-- [x] Built with `-armv7hl` or `-aarch64` kit before Harbour submission
+The app requests Sailjail permissions for the data it reads: `Location`,
+`Sensors`, `Connman`, `Internet`, `Bluetooth`, `Audio`, `Microphone`. See
+`harbour-zensors.desktop` → `[X-Sailjail]`.
 
-## References
+## License
 
-- SDK workflow: https://docs.sailfishos.org/Develop/Apps/Your_First_App/
-- Packaging: https://docs.sailfishos.org/Develop/Apps/Packaging/
-- Allowed APIs: https://docs.sailfishos.org/Develop/Apps/Harbour/Allowed_APIs/
-- Allowed permissions: https://docs.sailfishos.org/Develop/Apps/Harbour/Allowed_Permissions/
-- Sandbox setup: https://docs.sailfishos.org/Develop/Apps/Application_Permissions/
-- Submit to Harbour: https://harbour.jolla.com/
+GPL-3.0. See [LICENSE](LICENSE).
