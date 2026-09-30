@@ -1,7 +1,7 @@
 import QtQuick 2.6
 // Version required, same as LocationProbe: a versionless library import is
 // rejected on Qt 5 and this file would never load at all.
-import QtSensors 5.6
+import QtSensors 5.2
 
 /*
  * Reads the on-board motion and environment sensors.
