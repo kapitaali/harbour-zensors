@@ -66,11 +66,23 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>We love Open Source software and the Jolla ecosystem. If you want to support me or my work, please leave some tip here: &lt;a href=&quot;%1&quot;&gt;%1&lt;/a&gt;</source>
+        <source>Values come from /proc and /sys, from the system daemons over D-Bus and from the Qt sensor, positioning and audio APIs.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Values come from /proc and /sys, from the system daemons over D-Bus and from the Qt sensor, positioning and audio APIs.</source>
+        <source>Support</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>We love Open Source software and the Jolla ecosystem. If you want to support me or my work, please leave some tip here:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Leave a tip</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>System information</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
